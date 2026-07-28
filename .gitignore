@@ -9,3 +9,4 @@ data/*.json
 !data/test_*.png
 config.json
 .vortex_token
+dashboard_old.py

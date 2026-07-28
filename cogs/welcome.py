@@ -1,10 +1,9 @@
 import discord, math, io
 from discord.ext import commands
 from discord import app_commands
-import datetime
 from pathlib import Path
 
-from db import get_guild_config, set_guild_config, add_welcome, get_welcome_count, add_audit
+from db import get_guild_config, set_guild_config, add_welcome, add_audit
 
 # ── Constants ──────────────────────────────────────────────────────────
 BLURPLE = 0x5865F2
@@ -12,7 +11,7 @@ RED = 0xED4245
 
 # ── Welcome Image Generator ─────────────────────────────────────────────
 try:
-    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+    from PIL import Image, ImageDraw, ImageFont
     WELCOME_HAS_PIL = True
 except ImportError:
     WELCOME_HAS_PIL = False
@@ -98,7 +97,6 @@ def generate_welcome_image(member, guild, member_count):
         return None
     fl, fm, fs = get_fonts_welcome()
     W, H = 800, 300
-    import math
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 

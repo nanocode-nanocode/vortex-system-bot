@@ -8,8 +8,7 @@ Database-backed • Auto-sharding • Auto-reconnect
 """
 import discord
 from discord.ext import commands
-from discord import app_commands
-import json, os, sys, asyncio, signal, datetime
+import json, os, sys, asyncio, signal
 from pathlib import Path
 
 BASE = Path(__file__).parent
@@ -26,7 +25,7 @@ else:
 sys.path.insert(0, str(BASE))
 try:
     from db import (
-        get_db, close as db_close, incr_stat, get_all_stats,
+        close as db_close, incr_stat,
         add_audit, set_guild_config, init_defaults
     )
     HAS_DB = True
@@ -83,7 +82,7 @@ async def on_ready():
         add_audit("bot_start", f"Bot started with {len(bot.guilds)} guilds, {bot.shard_count or 1} shards")
 
     print(f"\n{'='*50}")
-    print(f"  VØRTΞX System Bot v4 — Enterprise (DB)")
+    print("  VØRTΞX System Bot v4 — Enterprise (DB)")
     print(f"  User: {bot.user} (ID: {bot.user.id})")
     print(f"  Guilds: {len(bot.guilds)}")
     print(f"  Users: {sum(g.member_count or 0 for g in bot.guilds):,}")
@@ -128,7 +127,7 @@ async def on_command_error(ctx, error):
     elif isinstance(error, commands.MissingPermissions):
         await ctx.send(f"❌ | {ctx.author.mention} ما عندك صلاحية!", delete_after=5)
     elif isinstance(error, commands.BotMissingPermissions):
-        await ctx.send(f"❌ | البوت ما عنده صلاحية!", delete_after=5)
+        await ctx.send("❌ | البوت ما عنده صلاحية!", delete_after=5)
     else:
         await ctx.send(f"⚠️ | خطأ: `{str(error)[:100]}`", delete_after=10)
         if not isinstance(error, (commands.CommandOnCooldown, commands.MaxConcurrencyReached)):

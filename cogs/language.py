@@ -14,7 +14,6 @@ with open(BASE / "config.json") as f:
     CONFIG = json.load(f)
 
 from db import set_guild_config, get_guild_config
-from i18n import t
 
 class LanguageCog(commands.Cog):
     def __init__(self, bot):
@@ -47,7 +46,7 @@ class LanguageCog(commands.Cog):
         if lang == "ar":
             await interaction.followup.send("✅ تم ضبط اللغة على **العربية**!", ephemeral=True)
         else:
-            await interaction.followup.send(f"✅ Language set to **English**!", ephemeral=True)
+            await interaction.followup.send("✅ Language set to **English**!", ephemeral=True)
 
 def get_guild_lang(guild_id: int) -> str:
     """Get guild language setting"""

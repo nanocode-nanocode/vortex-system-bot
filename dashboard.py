@@ -3,16 +3,16 @@
 VØRTΞX System Bot — Web Dashboard (v2)
 Responsive • Discord OAuth • Dark theme • Arabic
 """
-import os, sys, json, hashlib, time, uuid, hmac
+import os, sys, json, hashlib, time, hmac
 from pathlib import Path
 from functools import wraps
-from datetime import datetime, timedelta
+from datetime import timedelta
 from urllib.parse import urlencode
 import urllib.request
 
 from flask import (
     Flask, session, redirect, url_for, request,
-    render_template, jsonify, flash
+    render_template, jsonify
 )
 
 BASE = Path(__file__).parent
@@ -68,8 +68,7 @@ def get_bot_guilds():
         try:
             db = db_mod.get_db()
             if db:
-                rows = db.run("SELECT action, detail, created_at FROM audit_log ORDER BY created_at DESC LIMIT 50")
-                pass
+                db.run("SELECT action, detail, created_at FROM audit_log ORDER BY created_at DESC LIMIT 50")
         except: pass
     # Read from data file
     data = load_data()

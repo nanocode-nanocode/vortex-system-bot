@@ -315,7 +315,6 @@ class ReactionRoles(commands.Cog):
             return
 
         real_roles = _strip_sentinel(panel["roles"])
-        original_len = len(real_roles)
 
         # Filter to find if the role is actually present
         if not any(r["role_id"] == role.id for r in real_roles):

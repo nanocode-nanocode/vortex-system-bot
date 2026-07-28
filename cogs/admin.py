@@ -8,7 +8,6 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import json
-import io
 import time
 import asyncio
 from pathlib import Path
@@ -477,11 +476,11 @@ class Admin(commands.Cog):
 
         # Send confirmation embed to the channel before nuking
         try:
-            confirm = await channel.send(
+            await channel.send(
                 "💣 **NUKE INITIATED** — This channel will self-destruct in 5 seconds…"
             )
         except Exception:
-            confirm = None
+            pass
 
         await asyncio.sleep(5)
 
@@ -833,7 +832,7 @@ class Admin(commands.Cog):
             if lang == "ar"
             else f"⏳ {'Adding' if action == 'add' else 'Removing'} role for {len(members)} members…"
         )
-        status_msg = await interaction.followup.send(msg_start, ephemeral=True)
+        await interaction.followup.send(msg_start, ephemeral=True)
 
         for m in members:
             try:
@@ -1000,7 +999,7 @@ class Admin(commands.Cog):
         created_roles = 0
         created_channels = 0
 
-        status = await interaction.followup.send(
+        await interaction.followup.send(
             "⏳ " + ("جاري استعادة النسخة…" if lang == "ar" else "Restoring backup…"),
             ephemeral=True,
         )
@@ -1011,7 +1010,7 @@ class Admin(commands.Cog):
             if rd["name"].lower() in existing_role_names:
                 continue  # Skip roles that already exist
             try:
-                new_role = await guild.create_role(
+                await guild.create_role(
                     name=rd["name"],
                     color=discord.Color(rd.get("color", 0)),
                     hoist=rd.get("hoist", False),
@@ -1118,7 +1117,7 @@ class Admin(commands.Cog):
             interaction.user.id,
         )
         msg = (
-            f"🖼️ تم تعيين صورة الترحيب!" if lang == "ar"
+            "🖼️ تم تعيين صورة الترحيب!" if lang == "ar"
             else "🖼️ Welcome image set!"
         )
         embed = discord.Embed(color=CONFIG.get("color", 5792082))
@@ -1155,7 +1154,7 @@ class Admin(commands.Cog):
             interaction.user.id,
         )
         msg = (
-            f"👋 تم تعيين رسالة المغادرة!" if lang == "ar"
+            "👋 تم تعيين رسالة المغادرة!" if lang == "ar"
             else "👋 Leave message set!"
         )
         extra = ""

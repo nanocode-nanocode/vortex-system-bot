@@ -7,11 +7,11 @@ from pathlib import Path
 from db import (
     get_user_level, set_user_level,
     get_leaderboard, get_rank,
-    get_guild_config, set_guild_config, add_audit,
+    add_audit,
 )
 
 try:
-    from PIL import Image, ImageDraw, ImageFont, ImageFilter
+    from PIL import Image, ImageDraw, ImageFont
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -259,13 +259,6 @@ def generate_level_up(user, guild, old_level, new_level, total_xp, xp_progress, 
     tx, ty = 380, 80
 
     # outer glow (blur by drawing multiple semi-transparent layers)
-    glow_colors = [
-        (255, 215, 0, 30),
-        (255, 215, 0, 50),
-        (255, 215, 0, 70),
-        (255, 215, 0, 100),
-        (255, 215, 0, 150),
-    ]
     for ox in range(-8, 9, 2):
         for oy in range(-8, 9, 2):
             d.text((tx + ox, ty + oy), title, fill=(255, 215, 0, 35), font=fl)
@@ -310,7 +303,7 @@ def generate_level_up(user, guild, old_level, new_level, total_xp, xp_progress, 
 
     # Old level indicator
     old_str = f"From Level {old_level}"
-    ob = d.textbbox((0, 0), old_str, font=fs)
+    d.textbbox((0, 0), old_str, font=fs)
     d.text((tx, ly + lh + 32), old_str, fill=(140, 140, 180, 120), font=fs)
 
     # ── XP Bar (bottom) ──
@@ -405,7 +398,7 @@ def generate_leaderboard(users_data, guild, page, total_pages, guild_icon=None):
 
     # title
     title = f"LEADERBOARD — {guild.name[:20]}"
-    tb = d.textbbox((0, 0), title, font=fm)
+    d.textbbox((0, 0), title, font=fm)
     d.text((74, 30), title, fill=(255, 215, 0, 255), font=fm)
 
     # page indicator
@@ -428,7 +421,6 @@ def generate_leaderboard(users_data, guild, page, total_pages, guild_icon=None):
 
     # ── rows ──
     medals = ["🥇", "🥈", "🥉"]
-    mcolors = [(255, 215, 0, 255), (192, 192, 192, 255), (180, 120, 50, 255)]
 
     for idx, (uid, udata) in enumerate(users_data):
         row_y = HEADER + idx * ROW
@@ -574,7 +566,7 @@ def generate_xpstats_card(user, guild, xp, level, xp_progress, xp_needed, rank, 
         ("Messages", f"{total_msgs:,}"),
         ("Level", str(level)),
     ]
-    cols, rows = 4, 1
+    cols = 4
     cell_w = (W - 30) // cols
     gy = 150
     for i, (label, value) in enumerate(stats):
@@ -606,7 +598,7 @@ class Levels(commands.Cog):
         self.cooldowns = {}
         self._xp_boost_cache = {}  # guild_id -> {"roles": {role_id: mult}, "channels": {channel_id: mult}}
 
-    def get_guild_config(self, gid):
+    def _get_guild_config(self, gid):
         data = load_lvl_config()
         g = str(gid)
         if g not in data:
@@ -638,7 +630,7 @@ class Levels(commands.Cog):
 
     def _apply_xp_boost(self, guild_id, channel_id, member, base_xp):
         """Apply XP multiplier from role/channel boosts."""
-        cfg = self.get_guild_config(guild_id)
+        cfg = self._get_guild_config(guild_id)
         boost = cfg.get("xp_boost", {})
         multiplier = 1.0
         for role_id_str, mult in boost.get("roles", {}).items():
@@ -657,7 +649,7 @@ class Levels(commands.Cog):
 
     def _get_rank_card_cfg(self, guild_id, user_id):
         """Get per-user rank card customization."""
-        cfg = self.get_guild_config(guild_id)
+        cfg = self._get_guild_config(guild_id)
         return cfg.get("rank_cards", {}).get(str(user_id), {})
 
     # ── Listener ─────────────────────────────────────────────────────
@@ -666,7 +658,7 @@ class Levels(commands.Cog):
     async def on_message(self, message):
         if message.author.bot or message.guild is None:
             return
-        cfg = self.get_guild_config(message.guild.id)
+        cfg = self._get_guild_config(message.guild.id)
         if not cfg.get("enabled", True):
             return
         uid = message.author.id
@@ -689,7 +681,7 @@ class Levels(commands.Cog):
         set_user_level(message.guild.id, uid, xp=new_xp, level=new_level, last_msg=int(now))
 
         # Track weekly XP
-        cfg = self.get_guild_config(message.guild.id)
+        cfg = self._get_guild_config(message.guild.id)
         wk = self._ensure_weekly(cfg)
         wk["users"][str(uid)] = wk["users"].get(str(uid), 0) + gain
         # Track message count
@@ -884,7 +876,7 @@ class Levels(commands.Cog):
     )
     async def levelconfig_slash(self, interaction: discord.Interaction, setting: str, value: str = None):
         await interaction.response.defer()
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         gc = load_lvl_config()
         g = str(interaction.guild.id)
         gc.setdefault(g, cfg)
@@ -1021,7 +1013,7 @@ class Levels(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def levelroles_slash(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         rw = cfg.get("role_rewards", {})
         if not rw:
             return await interaction.followup.send("❌ | No level roles configured. Use `/levelconfig add-role` to add one.", ephemeral=True)
@@ -1056,7 +1048,7 @@ class Levels(commands.Cog):
         if multiplier > 10.0:
             return await interaction.followup.send("❌ | Max multiplier is 10.0", ephemeral=True)
 
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         boost = cfg.setdefault("xp_boost", {"roles": {}, "channels": {}})
         gc = load_lvl_config()
         g = str(interaction.guild.id)
@@ -1110,7 +1102,7 @@ class Levels(commands.Cog):
     )
     async def rankcard_slash(self, interaction: discord.Interaction, bg_color: str = None, accent_color: str = None):
         await interaction.response.defer()
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         rc = cfg.setdefault("rank_cards", {})
         uid = str(interaction.user.id)
         user_cfg = rc.setdefault(uid, {})
@@ -1162,7 +1154,7 @@ class Levels(commands.Cog):
     @app_commands.describe(page="Page number")
     async def topxp_slash(self, interaction: discord.Interaction, page: int = 1):
         await interaction.response.defer()
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         wk = self._ensure_weekly(cfg)
 
         if not wk["users"]:
@@ -1214,7 +1206,7 @@ class Levels(commands.Cog):
         rank = get_rank(interaction.guild.id, m.id)
 
         # Weekly stats from config
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         wk = self._ensure_weekly(cfg)
         weekly_xp = wk["users"].get(str(m.id), 0)
         msgs = cfg.get("weekly_msgs", {}).get(str(m.id), 0)
@@ -1256,7 +1248,7 @@ class Levels(commands.Cog):
                 return await btn_interaction.response.send_message("❌ | Not your command!", ephemeral=True)
             set_user_level(interaction.guild.id, member.id, xp=0, level=0)
             # Also reset weekly XP
-            cfg = self.get_guild_config(interaction.guild.id)
+            cfg = self._get_guild_config(interaction.guild.id)
             wk = cfg.setdefault("weekly_xp", {"start": 0, "users": {}})
             wk["users"].pop(str(member.id), None)
             msgs = cfg.setdefault("weekly_msgs", {})
@@ -1294,7 +1286,7 @@ class Levels(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     async def level_settings(self, interaction: discord.Interaction):
         await interaction.response.defer()
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         e = discord.Embed(
             title="⚙️ | Level System Settings",
             description=f"**Status:** {'🟢 Enabled' if cfg.get('enabled', True) else '🔴 Disabled'}",
@@ -1335,7 +1327,7 @@ class Levels(commands.Cog):
     @app_commands.describe(setting="Setting", value="Value")
     async def level_config(self, interaction: discord.Interaction, setting: str, value: str = None):
         await interaction.response.defer()
-        cfg = self.get_guild_config(interaction.guild.id)
+        cfg = self._get_guild_config(interaction.guild.id)
         gc = load_lvl_config()
         g = str(interaction.guild.id)
         gc.setdefault(g, cfg)

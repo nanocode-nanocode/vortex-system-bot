@@ -6,16 +6,14 @@ Polls, Giveaways, Reminders, Counting, Suggestions
 import discord
 from discord.ext import commands
 from discord import app_commands
-import json, asyncio, random, datetime
+import json, asyncio
 from pathlib import Path
 
 BASE = Path(__file__).parent.parent
 with open(BASE / "config.json") as f:
     CONFIG = json.load(f)
 
-from db import add_audit, get_guild_config
-from i18n import t
-from cogs.language import get_guild_lang
+from db import add_audit
 
 class Events(commands.Cog):
     def __init__(self, bot):

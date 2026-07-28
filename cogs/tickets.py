@@ -15,7 +15,6 @@ from db import (
     create_ticket,
     close_ticket,
     get_user_ticket,
-    get_all_tickets,
     get_guild_config,
     set_guild_config,
     add_audit,

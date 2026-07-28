@@ -2,7 +2,6 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import datetime, time
-from pathlib import Path
 
 from db import get_antiraid_config, set_antiraid_config, add_audit
 

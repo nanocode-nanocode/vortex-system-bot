@@ -13,7 +13,7 @@ BASE = Path(__file__).parent.parent
 with open(BASE / "config.json") as f:
     CONFIG = json.load(f)
 
-from db import get_all_stats, get_stat, get_guild_config
+from db import get_all_stats
 
 class Utility(commands.Cog):
     def __init__(self, bot):

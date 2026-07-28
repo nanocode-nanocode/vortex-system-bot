@@ -5,9 +5,9 @@ All-in-one database handler for all 10 cogs.
 Uses pg8000 (pure Python, no compilation needed).
 Falls back to JSON when PostgreSQL is unavailable.
 """
-from pg8000.native import Connection, literal
-from typing import Optional, Any
-import json, time, os
+from pg8000.native import Connection
+from typing import Optional
+import json, time
 from pathlib import Path
 
 BASE = Path(__file__).parent
@@ -17,8 +17,8 @@ DATA_DIR.mkdir(exist_ok=True)
 # ── Connection ────────────────────────────────────────────────────────
 DB_CONFIG = {
     "user": "postgres",
-    "password": "61174271082a",
-    "host": "db.fxyfsoomgltikdmxaouu.supabase.co",
+    "password": "61174271082s",
+    "host": "db.sifijctyygnqluuegzyu.supabase.co",
     "port": 5432,
     "database": "postgres",
 }
