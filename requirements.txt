@@ -1,0 +1,3 @@
+# VØRTΞX System Bot v4 — Cloud Dependencies
+discord.py>=2.4.0
+Pillow>=10.0.0
