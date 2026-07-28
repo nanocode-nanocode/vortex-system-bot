@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
-VØRTΞX System Bot v4 — Enterprise-Grade
+VØRTΞX System Bot v4 — Enterprise (PostgreSQL)
 All-in-one: Moderation, Tickets, Levels, Welcome, Broadcast,
 Reaction Roles, Anti-Raid, AutoMod, Custom Commands, Utility.
 
-Features:
-  • Auto-sharding (handles 2500+ guilds)
-  • Auto-reconnect on disconnect
-  • Statistics tracking
-  • Graceful shutdown on SIGTERM
-  • Resilience wrappers for all image generation
+Database-backed • Auto-sharding • Auto-reconnect
 """
 import discord
 from discord.ext import commands
@@ -27,18 +22,19 @@ if config_path.exists():
 else:
     CONFIG = {}
 
-# ── Stats ──────────────────────────────────────────────────────────────
-STATS_FILE = BASE / "data" / "stats.json"
-if STATS_FILE.exists():
-    with open(STATS_FILE) as f:
-        STATS = json.load(f)
-else:
-    STATS = {"commands_used": 0, "total_guilds": 0, "total_users": 0, "started_at": None}
-
-def save_stats():
-    STATS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(STATS_FILE, "w") as f:
-        json.dump(STATS, f, indent=2)
+# ── Database ──────────────────────────────────────────────────────────
+sys.path.insert(0, str(BASE))
+try:
+    from db import (
+        get_db, close as db_close, incr_stat, get_all_stats,
+        add_audit, set_guild_config, init_defaults
+    )
+    HAS_DB = True
+    init_defaults()
+    print("✅ Database: PostgreSQL connected")
+except Exception as e:
+    HAS_DB = False
+    print(f"⚠️ Database not available: {e}")
 
 # ── Intents ────────────────────────────────────────────────────────────
 intents = discord.Intents.all()
@@ -80,20 +76,18 @@ async def load_cogs():
 # ── Events ─────────────────────────────────────────────────────────────
 @bot.event
 async def on_ready():
-    # Update stats
-    STATS["total_guilds"] = len(bot.guilds)
-    STATS["total_users"] = sum(g.member_count or 0 for g in bot.guilds)
-    if STATS["started_at"] is None:
-        STATS["started_at"] = datetime.datetime.utcnow().isoformat()
-    save_stats()
+    if HAS_DB:
+        incr_stat("total_guilds", len(bot.guilds))
+        incr_stat("total_users", sum(g.member_count or 0 for g in bot.guilds))
+        add_audit("bot_start", f"Bot started with {len(bot.guilds)} guilds, {bot.shard_count or 1} shards")
 
     print(f"\n{'='*50}")
-    print(f"  VØRTΞX System Bot v4 — Enterprise")
+    print(f"  VØRTΞX System Bot v4 — Enterprise (DB)")
     print(f"  User: {bot.user} (ID: {bot.user.id})")
     print(f"  Guilds: {len(bot.guilds)}")
-    print(f"  Users: {STATS['total_users']:,}")
+    print(f"  Users: {sum(g.member_count or 0 for g in bot.guilds):,}")
     print(f"  Shards: {bot.shard_count or 1}")
-    print(f"  Started: {STATS['started_at']}")
+    print(f"  DB: {'✅ PostgreSQL' if HAS_DB else '⚠️ Local JSON'}")
     
     # Sync slash commands
     try:
@@ -143,28 +137,33 @@ async def on_command_error(ctx, error):
 @bot.event
 async def on_app_command_completion(interaction, command):
     """Track command usage"""
-    STATS["commands_used"] = STATS.get("commands_used", 0) + 1
-    if STATS.get("commands_used", 0) % 50 == 0:
-        save_stats()
+    if HAS_DB:
+        incr_stat("total_commands")
+        add_audit("command", f"/{command.name} used by {interaction.user} in {interaction.guild}", 
+                   guild_id=interaction.guild_id, user_id=interaction.user.id)
 
 @bot.event
 async def on_guild_join(guild):
-    STATS["total_guilds"] = len(bot.guilds)
-    STATS["total_users"] = sum(g.member_count or 0 for g in bot.guilds)
-    save_stats()
+    if HAS_DB:
+        incr_stat("total_guilds")
+        incr_stat("total_users", guild.member_count or 0)
+        add_audit("guild_join", f"Joined {guild.name} (ID: {guild.id}) — Now {len(bot.guilds)} servers")
+        set_guild_config(guild.id)
     print(f"📥 Joined guild: {guild.name} (ID: {guild.id}) — Now at {len(bot.guilds)} servers")
 
 @bot.event
 async def on_guild_remove(guild):
-    STATS["total_guilds"] = len(bot.guilds)
-    STATS["total_users"] = sum(g.member_count or 0 for g in bot.guilds)
-    save_stats()
+    if HAS_DB:
+        incr_stat("total_guilds", -1)
+        add_audit("guild_leave", f"Left {guild.name} (ID: {guild.id}) — Now {len(bot.guilds)} servers")
     print(f"📤 Left guild: {guild.name} (ID: {guild.id}) — Now at {len(bot.guilds)} servers")
 
 # ── Graceful shutdown ─────────────────────────────────────────────────
 async def shutdown():
     print("\n🛑 Shutting down gracefully...")
-    save_stats()
+    if HAS_DB:
+        add_audit("bot_stop", "Bot shutting down")
+        db_close()
     await bot.close()
 
 def handle_signal(sig, frame):
