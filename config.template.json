@@ -1,0 +1,12 @@
+{
+    "token": "YOUR_DISCORD_BOT_TOKEN_HERE",
+    "prefix": "!",
+    "admin_roles": ["Admin", "CEO", "Owner"],
+    "mod_roles": ["Mod", "Admin", "CEO", "Owner"],
+    "ticket_category": " Tickets",
+    "log_channel": "logs",
+    "welcome_channel": "welcome",
+    "member_role": "Member",
+    "status": "⚡ VØRTΞX HOST",
+    "color": 5792082
+}
