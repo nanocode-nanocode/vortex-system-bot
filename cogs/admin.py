@@ -764,25 +764,30 @@ class Admin(commands.Cog):
     # ── removeemoji ────────────────────────────────────────────────────
 
     @app_commands.command(name="removeemoji", description="🗑️ حذف إيموجي من السيرفر / Remove an emoji from the server")
-    @app_commands.describe(emoji="الإيموجي / Emoji to remove")
+    @app_commands.describe(emoji="الإيموجي / Emoji name (without : :)")
     @app_commands.checks.has_permissions(manage_expressions=True)
     async def removeemoji(
-        self, interaction: discord.Interaction, emoji: discord.Emoji
+        self, interaction: discord.Interaction, emoji: str
     ):
         """Delete a custom emoji from the server."""
         await interaction.response.defer(ephemeral=True)
         lang = get_lang(interaction.guild_id)
         try:
-            await emoji.delete(reason=f"Removed by {interaction.user}")
+            # Look up emoji by name
+            target = discord.utils.get(interaction.guild.emojis, name=emoji)
+            if not target:
+                msg = "❌ إيموجي غير موجود!" if lang == "ar" else "❌ Emoji not found!"
+                return await interaction.followup.send(msg, ephemeral=True)
+            await target.delete(reason=f"Removed by {interaction.user}")
             add_audit(
                 "removeemoji",
-                f"Emoji :{emoji.name}: removed by {interaction.user}",
+                f"Emoji :{target.name}: removed by {interaction.user}",
                 interaction.guild_id,
                 interaction.user.id,
             )
             msg = (
-                f"🗑️ تم حذف الإيموجي :{emoji.name}:!" if lang == "ar"
-                else f"🗑️ Removed emoji :{emoji.name}:!"
+                f"🗑️ تم حذف الإيموجي :{target.name}:!" if lang == "ar"
+                else f"🗑️ Removed emoji :{target.name}:!"
             )
             await interaction.followup.send(msg, ephemeral=True)
         except Exception as e:

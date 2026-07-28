@@ -21,7 +21,10 @@ class Events(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.active_giveaways = {}
-        self.bot.loop.create_task(self._init_giveaways())
+
+    async def cog_load(self):
+        """Called when the cog is loaded."""
+        pass  # Giveaways placeholder — will be implemented when needed
 
     async def _init_giveaways(self):
         await self.bot.wait_until_ready()
@@ -162,7 +165,7 @@ class Events(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="botinfo", description="🤖 معلومات البوت / Bot information")
-    async def bot_info(self, interaction: discord.Interaction):
+    async def botinfo_cmd(self, interaction: discord.Interaction):
         await interaction.response.defer()
         embed = discord.Embed(title="🤖 VØRTΞX Bot v4", 
             description="Enterprise Discord Bot — PostgreSQL powered\nالمطور: VØRTΞX HOST",
