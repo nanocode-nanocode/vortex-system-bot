@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}السيرفرات — VØRTΞX Dashboard{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">🖥️ جميع السيرفرات ({{ guilds|length }})</div>
+  {% if guilds %}
+  <div class="guild-grid">
+    {% for g in guilds %}
+    <div class="guild-card" onclick="window.location='/guild/{{ g.id }}'">
+      <div class="guild-icon">
+        {% if g.icon %}<img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png" alt="">{% endif %}
+      </div>
+      <div class="guild-info">
+        <div class="guild-name">{{ g.name }}</div>
+        <div class="guild-meta">{{ g.member_count }} عضو • {{ g.channel_count if g.channel_count else '?' }} روم</div>
+      </div>
+      <span class="guild-badge">عرض</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><div class="icon">🖥️</div><p>البوت ليس في أي سيرفر</p></div>
+  {% endif %}
+</div>
+{% endblock %}

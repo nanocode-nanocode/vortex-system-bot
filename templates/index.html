@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}الرئيسية — VØRTΞX Dashboard{% endblock %}
+{% block content %}
+{% if error %}<div class="alert alert-error">{{ error }}</div>{% endif %}
+{% if msg %}<div class="alert alert-success">{{ msg }}</div>{% endif %}
+
+<div class="stats-grid">
+  <div class="stat-card"><div class="num">{{ stats.guilds }}</div><div class="label">🖥️ سيرفرات</div></div>
+  <div class="stat-card"><div class="num">{{ stats.users }}</div><div class="label">👥 مستخدمين</div></div>
+  <div class="stat-card"><div class="num">{{ stats.commands }}</div><div class="label">⌨️ أوامر منفذة</div></div>
+  <div class="stat-card"><div class="num">{{ stats.cogs }}</div><div class="label">📦 كوجز</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header">🤖 معلومات البوت</div>
+  <div class="flex gap-16" style="flex-wrap:wrap">
+    <div><span class="text-muted">الحالة:</span> <span class="text-accent">🟢 شغال</span></div>
+    <div><span class="text-muted">DB:</span> 
+      {% if stats.db_connected %}<span class="text-accent">🐘 PostgreSQL</span>
+      {% else %}<span style="color:var(--gold)}">⚠️ JSON احتياطي</span>{% endif %}
+    </div>
+    <div><span class="text-muted">قاعدة البيانات:</span> <span>{{ stats.db_name }}</span></div>
+  </div>
+</div>
+
+{% if guilds %}
+<div class="card">
+  <div class="card-header">🖥️ السيرفرات ({{ guilds|length }})</div>
+  <div class="guild-grid">
+    {% for g in guilds %}
+    <div class="guild-card" onclick="window.location='/guild/{{ g.id }}'">
+      <div class="guild-icon">
+        {% if g.icon %}<img src="https://cdn.discordapp.com/icons/{{ g.id }}/{{ g.icon }}.png" alt="">{% endif %}
+      </div>
+      <div class="guild-info">
+        <div class="guild-name">{{ g.name }}</div>
+        <div class="guild-meta">{{ g.member_count }} عضو • <span class="guild-badge">{{ g.id|string|truncate(8,True,'…') }}</span></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">📋 آخر النشاطات</div>
+  {% if audit %}
+  <div class="table-wrap">
+  <table>
+    <tr><th>الإجراء</th><th>التفاصيل</th><th>الوقت</th></tr>
+    {% for a in audit %}
+    <tr>
+      <td><span class="guild-badge" style="background:var(--card2);color:var(--text)">{{ a.action }}</span></td>
+      <td class="truncate" style="max-width:300px">{{ a.detail }}</td>
+      <td class="text-muted">{{ a.time[:16] if a.time is string else a.time }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% else %}
+  <div class="empty"><div class="icon">📭</div><p>لا توجد نشاطات بعد</p></div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-header">🔗 روابط سريعة</div>
+  <div class="flex gap-8" style="flex-wrap:wrap">
+    <a href="/guilds" class="btn btn-outline">🖥️ إدارة السيرفرات</a>
+    <a href="/audit" class="btn btn-outline">📋 سجل النشاطات</a>
+    <a href="https://github.com/nanocode-nanocode/vortex-system-bot" class="btn btn-outline" target="_blank">☁️ GitHub</a>
+  </div>
+</div>
+{% endblock %}

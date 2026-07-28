@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ guild.name }} — VØRTΞX{% endblock %}
+{% block content %}
+<a href="/guilds" style="display:inline-flex;align-items:center;gap:4px;margin-bottom:16px;font-size:14px;color:var(--muted)">← رجوع للسيرفرات</a>
+
+<div class="flex gap-12" style="margin-bottom:16px;flex-wrap:wrap">
+  {% if guild.icon %}<img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png" style="width:64px;height:64px;border-radius:50%" alt="">{% endif %}
+  <div>
+    <h2 style="font-size:24px">{{ guild.name }}</h2>
+    <p class="text-muted">{{ guild.member_count }} عضو • 🆔 {{ guild.id }}</p>
+  </div>
+</div>
+
+<div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+  <div class="stat-card"><div class="num" style="font-size:24px">{{ cfg.language or 'ar' }}</div><div class="label">🌐 اللغة</div></div>
+  <div class="stat-card"><div class="num" style="font-size:24px">-</div><div class="label">🎫 التذاكر</div></div>
+  <div class="stat-card"><div class="num" style="font-size:24px">{{ warns or 0 }}</div><div class="label">⚠️ تحذيرات</div></div>
+</div>
+
+{% if commands %}
+<div class="card">
+  <div class="card-header">⌨️ أوامر السيرفر</div>
+  <div class="table-wrap">
+  <table>
+    <tr><th>الأمر</th><th>الوصف</th></tr>
+    {% for c in commands %}
+    <tr><td><code style="color:var(--accent)">/{{ c.name }}</code></td><td class="text-muted">{{ c.description }}</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-header">⚙️ الإعدادات</div>
+  <form method="post" action="/guild/{{ guild.id }}/config" class="flex gap-8" style="flex-wrap:wrap">
+    <select name="language" style="width:auto;min-width:120px">
+      <option value="ar" {{ 'selected' if cfg.language == 'ar' }}>🇸🇦 العربية</option>
+      <option value="en" {{ 'selected' if cfg.language == 'en' }}>🇬🇧 English</option>
+    </select>
+    <button type="submit" class="btn btn-sm">💾 حفظ</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header">📋 نشاطات السيرفر</div>
+  {% if audit %}
+  <div class="table-wrap">
+  <table>
+    <tr><th>الإجراء</th><th>التفاصيل</th><th>الوقت</th></tr>
+    {% for a in audit %}
+    <tr><td>{{ a.action }}</td><td class="text-muted">{{ a.detail }}</td><td class="text-muted">{{ a.time[:16] if a.time is string else a.time }}</td></tr>
+    {% endfor %}
+  </table>
+  </div>
+  {% else %}
+  <div class="empty"><p>لا توجد نشاطات</p></div>
+  {% endif %}
+</div>
+{% endblock %}

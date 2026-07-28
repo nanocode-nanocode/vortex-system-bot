@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}VØRTΞX Dashboard{% endblock %}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--card:#12121a;--card2:#1a1a2e;--border:#2a2a3e;--text:#e0e0e0;--muted:#888;--accent:#00ff88;--accent2:#5865f2;--red:#ed4245;--gold:#fee75c;--radius:12px;--shadow:0 4px 24px rgba(0,0,0,0.4)}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+a{color:var(--accent);text-decoration:none}
+.container{max-width:1200px;margin:0 auto;padding:16px}
+
+/* ── Header ── */
+header{background:var(--card);border-bottom:1px solid var(--border);padding:12px 0;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+header .container{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.logo{font-size:22px;font-weight:800;color:var(--accent);letter-spacing:1px}
+.logo span{color:var(--text)}
+.nav{display:flex;gap:8px;flex-wrap:wrap}
+.nav a,.nav button{background:var(--card2);color:var(--text);border:1px solid var(--border);padding:8px 16px;border-radius:8px;font-size:14px;cursor:pointer;transition:all .2s}
+.nav a:hover,.nav button:hover{background:var(--accent);color:#000;border-color:var(--accent)}
+.nav .active{background:var(--accent);color:#000;border-color:var(--accent)}
+
+/* ── Cards ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:16px;transition:all .2s}
+.card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.card-header{font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* ── Stats Grid ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+.stat-card .num{font-size:32px;font-weight:800;color:var(--accent)}
+.stat-card .label{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ── Guild Grid ── */
+.guild-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.guild-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;align-items:center;gap:14px;transition:all .2s;cursor:pointer}
+.guild-card:hover{border-color:var(--accent);box-shadow:var(--shadow)}
+.guild-icon{width:48px;height:48px;border-radius:50%;background:var(--card2);flex-shrink:0;overflow:hidden}
+.guild-icon img{width:100%;height:100%;object-fit:cover}
+.guild-info{flex:1;min-width:0}
+.guild-name{font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.guild-meta{font-size:12px;color:var(--muted)}
+.guild-badge{background:var(--accent);color:#000;font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600}
+
+/* ── Tables ── */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase}
+tr:hover td{background:var(--card2)}
+tr:last-child td{border-bottom:none}
+
+/* ── Forms ── */
+input,select,textarea{background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;width:100%;transition:border .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);outline:none}
+textarea{resize:vertical;min-height:80px}
+.btn{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#000;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn:hover{opacity:.85;transform:translateY(-1px)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-danger{background:var(--red)}
+.btn-discord{background:#5865f2;color:#fff}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--card2);border-color:var(--accent)}
+
+/* ── Login ── */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;text-align:center}
+.login-box h1{font-size:28px;color:var(--accent);margin-bottom:4px}
+.login-box p{color:var(--muted);margin-bottom:24px;font-size:14px}
+.login-box .btn{width:100%;justify-content:center;margin-bottom:10px}
+.or-divider{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--muted);font-size:13px}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── Utility ── */
+.flex{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.gap-4{gap:4px}.gap-8{gap:8px}.gap-12{gap:12px}.gap-16{gap:16px}
+.mt-8{margin-top:8px}.mt-16{margin-top:16px}.mb-16{margin-bottom:16px}
+.text-center{text-align:center}.text-muted{color:var(--muted)}.text-accent{color:var(--accent)}
+.truncate{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-full{width:100%}
+
+/* ── Responsive ── */
+@media(max-width:768px){
+  .container{padding:12px}
+  header .container{flex-direction:column}
+  .nav{width:100%;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}
+  .nav a,.nav button{white-space:nowrap;font-size:13px;padding:6px 12px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .guild-grid{grid-template-columns:1fr}
+  .login-box{padding:24px;margin:0}
+  .stat-card .num{font-size:24px}
+  .card{padding:14px}
+  table{font-size:13px}
+  th,td{padding:8px 10px}
+}
+@media(max-width:400px){
+  .stats-grid{grid-template-columns:1fr}
+  .logo{font-size:18px}
+}
+
+/* ── Alert ── */
+.alert{padding:12px 16px;border-radius:8px;margin-bottom:12px;font-size:14px}
+.alert-success{background:#003d1f;color:#00ff88;border:1px solid #00ff8822}
+.alert-error{background:#3d0000;color:#ff4444;border:1px solid #ff444422}
+.alert-info{background:#001a3d;color:#4488ff;border:1px solid #4488ff22}
+
+/* ── Empty state ── */
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.empty .icon{font-size:48px;margin-bottom:12px}
+
+/* ── View toggle ── */
+.view-options{display:flex;gap:4px;background:var(--card2);border-radius:8px;padding:4px}
+.view-options button{background:none;border:none;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer;font-size:13px;transition:all .2s}
+.view-options button.active{background:var(--accent);color:#000;font-weight:600}
+
+/* ── Logout ── */
+.user-badge{display:flex;align-items:center;gap:8px;background:var(--card2);padding:6px 12px;border-radius:8px;font-size:13px}
+.user-badge img{width:24px;height:24px;border-radius:50%}
+</style>
+</head>
+<body>
+<header>
+<div class="container">
+  <a href="/" class="logo">⬡ <span>VØRTΞX</span></a>
+  <nav class="nav">
+    {% if session.get('logged_in') %}
+    <a href="/" class="{% if request.path == '/' %}active{% endif %}">🏠 الرئيسية</a>
+    <a href="/guilds" class="{% if request.path == '/guilds' %}active{% endif %}">🖥️ السيرفرات</a>
+    <a href="/audit" class="{% if request.path == '/audit' %}active{% endif %}">📋 السجل</a>
+    <form method="post" action="/logout" style="display:inline">
+      <button type="submit">🚪 خروج</button>
+    </form>
+    {% if session.get('user') %}
+    <div class="user-badge">
+      {% if session.user.avatar %}<img src="https://cdn.discordapp.com/avatars/{{ session.user.id }}/{{ session.user.avatar }}.png" alt="">{% endif %}
+      <span>{{ session.user.username }}</span>
+    </div>
+    {% endif %}
+    {% endif %}
+  </nav>
+</div>
+</header>
+
+<main class="container">
+{% block content %}{% endblock %}
+</main>
+
+<script>
+// Auto-hide alerts after 5s
+document.querySelectorAll('.alert').forEach(el => {
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .5s'; }, 5000);
+});
+</script>
+</body>
+</html>
