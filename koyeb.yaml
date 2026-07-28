@@ -1,0 +1,26 @@
+name: vortex-system-bot
+region: eu-west
+services:
+  - name: bot
+    type: worker
+    plan: free
+    dockerfile_path: Dockerfile
+    git:
+      branch: main
+      repository: nanocode-nanocode/vortex-system-bot
+    env:
+      - key: DISCORD_TOKEN
+        secret: true
+      - key: DB_HOST
+        value: db.fxyfsoomgltikdmxaouu.supabase.co
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USER
+        value: postgres
+      - key: DB_PASSWORD
+        secret: true
+      - key: DB_NAME
+        value: postgres
+    health_check:
+      http: /live
+      port: 8080
