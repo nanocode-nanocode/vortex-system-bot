@@ -1,15 +1,14 @@
 import discord, math, io
 from discord.ext import commands
 from discord import app_commands
-import json, datetime
+import datetime
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent
-try:
-    with open(BASE / "config.json") as f:
-        CONFIG = json.load(f)
-except:
-    CONFIG = {}
+from db import get_guild_config, set_guild_config, add_welcome, get_welcome_count, add_audit
+
+# ── Constants ──────────────────────────────────────────────────────────
+BLURPLE = 0x5865F2
+RED = 0xED4245
 
 # ── Welcome Image Generator ─────────────────────────────────────────────
 try:
@@ -18,7 +17,9 @@ try:
 except ImportError:
     WELCOME_HAS_PIL = False
 
+BASE = Path(__file__).parent.parent
 FONT_DIR = BASE / "data" / "fonts"
+
 
 def get_fonts_welcome():
     fl, fm, fs = None, None, None
@@ -42,10 +43,12 @@ def get_fonts_welcome():
         fl = fm = fs = ImageFont.load_default()
     return fl, fm, fs
 
+
 def rr(draw, xy, r, **kw):
     """Rounded rectangle helper"""
     x1, y1, x2, y2 = xy
     draw.rounded_rectangle([x1, y1, x2, y2], radius=r, **kw)
+
 
 def load_avatar_welcome(user, size=200):
     """Load a circular avatar for welcome card. Falls back to colored initial."""
@@ -85,6 +88,7 @@ def load_avatar_welcome(user, size=200):
         d.text((size//2 - tw//2, size//2 - th//2), name_str, fill=(255, 255, 255, 240), font=fl2)
     return av
 
+
 def generate_welcome_image(member, guild, member_count):
     """
     Generate a welcome card: 800×300 px
@@ -103,7 +107,7 @@ def generate_welcome_image(member, guild, member_count):
         t = y / H
         r_val = int(12 + 28 * (1 - t))
         g_val = int(12 + 24 * (1 - t))
-        b_val = int(35 + 60 * (1 - t))
+        b_val = int(12 + 60 * (1 - t))
         d.line([(0, y), (W, y)], fill=(r_val, g_val, b_val, 255))
 
     # Decorative glassmorphism circles
@@ -165,41 +169,71 @@ def generate_welcome_image(member, guild, member_count):
     buf.seek(0)
     return buf
 
+
+# ── Default Config ────────────────────────────────────────────────────
+WELCOME_DEFAULTS = {
+    "enabled": True,
+    "channel": "welcome",
+    "message": "🎉 | مرحباً {member}! نرحب بك في {server} ❤️",
+    "leave_message": "👋 | {member} غادر السيرفر...",
+    "auto_role": "Member",
+    "dm_welcome": True,
+}
+
+
 class Welcome(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.welcome_data = BASE / "data" / "welcome_config.json"
-        if self.welcome_data.exists():
-            with open(self.welcome_data) as f:
-                self.config = json.load(f)
-        else:
-            self.config = {}
-            self.save_config()
-    
-    def get_guild_config(self, guild_id):
-        gid = str(guild_id)
-        if gid not in self.config:
-            self.config[gid] = {
-                "enabled": True,
-                "channel": "welcome",
-                "message": "🎉 | مرحباً {member}! نرحب بك في {server} ❤️",
-                "leave_message": "👋 | {member} غادر السيرفر...",
-                "auto_role": "Member",
-                "dm_welcome": True
-            }
-            self.save_config()
-        return self.config[gid]
-    
-    def save_config(self):
-        with open(self.welcome_data, "w") as f:
-            json.dump(self.config, f, indent=2)
-    
+        # In-memory cache: guild_id -> config dict
+        self._config_cache = {}
+
+    # ── Config helpers ───────────────────────────────────────────────
+
+    def _ensure_defaults(self, cfg: dict) -> dict:
+        """Fill missing keys with defaults and persist if changed."""
+        changed = False
+        for k, v in WELCOME_DEFAULTS.items():
+            if k not in cfg or cfg[k] is None:
+                cfg[k] = v
+                changed = True
+        return cfg, changed
+
+    def _get_cfg(self, guild_id: int) -> dict:
+        """Get guild welcome config from DB (cached)."""
+        if guild_id in self._config_cache:
+            return self._config_cache[guild_id]
+        cfg = get_guild_config(guild_id)
+        cfg, changed = self._ensure_defaults(cfg)
+        if changed:
+            set_guild_config(guild_id, **cfg)
+        self._config_cache[guild_id] = cfg
+        return cfg
+
+    def _save_cfg(self, guild_id: int):
+        """Persist cached config to DB."""
+        cfg = self._config_cache.get(guild_id)
+        if cfg:
+            set_guild_config(guild_id, **cfg)
+
+    def _invalidate_cache(self, guild_id: int):
+        self._config_cache.pop(guild_id, None)
+
+    # ── Listeners ──────────────────────────────────────────────────
+
     @commands.Cog.listener()
     async def on_member_join(self, member):
-        cfg = self.get_guild_config(member.guild.id)
+        cfg = self._get_cfg(member.guild.id)
         if not cfg.get("enabled", True):
             return
-        
+
+        # Log welcome to DB
+        try:
+            add_welcome(member.guild.id, member.id)
+            add_audit("member_join", f"{member} joined", member.guild.id, member.id)
+        except Exception:
+            pass
+
+        # DM welcome
         if cfg.get("dm_welcome", True):
             try:
                 rules_ch = None
@@ -209,42 +243,67 @@ class Welcome(commands.Cog):
                         break
                 embed = discord.Embed(
                     title=f"🎉 | مرحباً في {member.guild.name}!",
-                    description=f"نرحب بك يا {member.name}! 🎊\n\n"
-                                f"📖 | اقرأ القوانين في {rules_ch.mention if rules_ch else 'قناة القوانين'}\n"
-                                f"💬 | شارك معنا في النقاشات\n"
-                                f"🎫 | إذا احتجت مساعدة استخدم `/ticket setup`\n\n"
-                                f"**VØRTΞX HOST**",
-                    color=CONFIG.get("color", 0x5865F2)
+                    description=(
+                        f"نرحب بك يا {member.name}! 🎊\n\n"
+                        f"📖 | اقرأ القوانين في {rules_ch.mention if rules_ch else 'قناة القوانين'}\n"
+                        f"💬 | شارك معنا في النقاشات\n"
+                        f"🎫 | إذا احتجت مساعدة استخدم `/ticket setup`\n\n"
+                        f"**VØRTΞX HOST**"
+                    ),
+                    color=BLURPLE,
                 )
                 if member.guild.icon:
                     embed.set_thumbnail(url=member.guild.icon.url)
                 await member.send(embed=embed)
-            except:
+            except Exception:
                 pass
-        
+
+        # Auto role
         role_name = cfg.get("auto_role")
         if role_name:
             role = discord.utils.get(member.guild.roles, name=role_name)
             if role:
                 try:
                     await member.add_roles(role)
-                except:
+                except Exception:
                     pass
-        
-        channel = discord.utils.get(member.guild.text_channels, name=cfg.get("channel", "welcome"))
+
+        # Channel welcome message
+        channel = discord.utils.get(
+            member.guild.text_channels,
+            name=cfg.get("channel", "welcome"),
+        )
         if channel:
-            # Try sending welcome image
+            # Generate welcome image
             welcome_img = None
             try:
-                welcome_img = generate_welcome_image(member, member.guild, len(member.guild.members))
-            except:
+                welcome_img = generate_welcome_image(
+                    member,
+                    member.guild,
+                    len(member.guild.members),
+                )
+            except Exception:
                 pass
 
-            msg = cfg.get("message", "🎉 | مرحباً {member}!").replace("{member}", member.mention).replace("{server}", member.guild.name)
-            embed = discord.Embed(title="🎉 | عضو جديد!", description=msg, color=CONFIG.get("color", 0x5865F2))
+            msg = (
+                cfg.get("message", "🎉 | مرحباً {member}!")
+                .replace("{member}", member.mention)
+                .replace("{server}", member.guild.name)
+            )
+            embed = discord.Embed(
+                title="🎉 | عضو جديد!",
+                description=msg,
+                color=BLURPLE,
+            )
             embed.set_thumbnail(url=member.display_avatar.url)
-            embed.add_field(name="📅 | تاريخ الانضمام", value=member.joined_at.strftime("%Y-%m-%d") if member.joined_at else "غير معروف")
-            embed.add_field(name="👤 | العضو رقم", value=len(member.guild.members))
+            embed.add_field(
+                name="📅 | تاريخ الانضمام",
+                value=member.joined_at.strftime("%Y-%m-%d") if member.joined_at else "غير معروف",
+            )
+            embed.add_field(
+                name="👤 | العضو رقم",
+                value=len(member.guild.members),
+            )
             embed.set_footer(text=f"ID: {member.id}")
 
             if welcome_img:
@@ -253,93 +312,223 @@ class Welcome(commands.Cog):
                 await channel.send(embed=embed, file=file)
             else:
                 await channel.send(embed=embed)
-    
+
     @commands.Cog.listener()
     async def on_member_remove(self, member):
-        cfg = self.get_guild_config(member.guild.id)
+        cfg = self._get_cfg(member.guild.id)
         if not cfg.get("enabled", True):
             return
-        channel = discord.utils.get(member.guild.text_channels, name=cfg.get("channel", "welcome"))
+        channel = discord.utils.get(
+            member.guild.text_channels,
+            name=cfg.get("channel", "welcome"),
+        )
         if channel:
-            msg = cfg.get("leave_message", "👋 | {member} غادر السيرفر...").replace("{member}", member.name).replace("{server}", member.guild.name)
-            embed = discord.Embed(title="👋 | عضو غادر", description=msg, color=0xED4245)
-            embed.set_thumbnail(url=member.display_avatar.url if member.display_avatar else None)
+            msg = (
+                cfg.get("leave_message", "👋 | {member} غادر السيرفر...")
+                .replace("{member}", member.name)
+                .replace("{server}", member.guild.name)
+            )
+            embed = discord.Embed(
+                title="👋 | عضو غادر",
+                description=msg,
+                color=RED,
+            )
+            embed.set_thumbnail(
+                url=member.display_avatar.url if member.display_avatar else None,
+            )
             await channel.send(embed=embed)
-    
-    # ── Slash ─────────────────────────────────────────────────────────
-    
-    welcome_group = app_commands.Group(name="welcome", description="🎉 إعدادات الترحيب")
-    
-    @welcome_group.command(name="status", description="🟢 عرض حالة الترحيب")
+
+    # ── Slash Commands ─────────────────────────────────────────────
+
+    welcome_group = app_commands.Group(
+        name="welcome",
+        description="🎉 إعدادات الترحيب",
+    )
+
+    @welcome_group.command(
+        name="status",
+        description="🟢 عرض حالة الترحيب",
+    )
     @app_commands.default_permissions(administrator=True)
     async def welcome_status(self, interaction: discord.Interaction):
-        cfg = self.get_guild_config(interaction.guild.id)
-        embed = discord.Embed(title="🎉 | إعدادات الترحيب", color=CONFIG.get("color", 0x5865F2))
-        embed.add_field(name="الحالة", value="🟢 شغال" if cfg.get("enabled", True) else "🔴 متوقف", inline=True)
-        embed.add_field(name="قناة الترحيب", value=f"#{cfg.get('channel', 'غير مضبوط')}", inline=True)
-        embed.add_field(name="الرتبة التلقائية", value=cfg.get("auto_role", "لا يوجد"), inline=True)
-        embed.add_field(name="رسالة الترحيب", value=f"```{cfg.get('message', 'لا يوجد')[:80]}```", inline=False)
-        embed.add_field(name="الرسالة الخاصة", value="✅ مفعلة" if cfg.get("dm_welcome", True) else "❌ معطلة", inline=True)
-        await interaction.response.send_message(embed=embed)
-    
-    @welcome_group.command(name="channel", description="📢 ضبط قناة الترحيب")
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
+
+        embed = discord.Embed(
+            title="🎉 | إعدادات الترحيب",
+            color=BLURPLE,
+        )
+        embed.add_field(
+            name="الحالة",
+            value="🟢 شغال" if cfg.get("enabled", True) else "🔴 متوقف",
+            inline=True,
+        )
+        embed.add_field(
+            name="قناة الترحيب",
+            value=f"#{cfg.get('channel', 'غير مضبوط')}",
+            inline=True,
+        )
+        embed.add_field(
+            name="الرتبة التلقائية",
+            value=cfg.get("auto_role", "لا يوجد"),
+            inline=True,
+        )
+        embed.add_field(
+            name="رسالة الترحيب",
+            value=f"```{cfg.get('message', 'لا يوجد')[:80]}```",
+            inline=False,
+        )
+        embed.add_field(
+            name="الرسالة الخاصة",
+            value="✅ مفعلة" if cfg.get("dm_welcome", True) else "❌ معطلة",
+            inline=True,
+        )
+        await interaction.followup.send(embed=embed)
+
+    @welcome_group.command(
+        name="channel",
+        description="📢 ضبط قناة الترحيب",
+    )
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(channel="القناة")
-    async def welcome_channel(self, interaction: discord.Interaction, channel: discord.TextChannel):
-        cfg = self.get_guild_config(interaction.guild.id)
+    async def welcome_channel(
+        self,
+        interaction: discord.Interaction,
+        channel: discord.TextChannel,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
         cfg["channel"] = channel.name
-        self.save_config()
-        await interaction.response.send_message(f"✅ | تم ضبط قناة الترحيب: {channel.mention}")
-    
-    @welcome_group.command(name="message", description="✏️ ضبط رسالة الترحيب (استخدم {member} {server})")
+        self._save_cfg(interaction.guild.id)
+        await interaction.followup.send(
+            f"✅ | تم ضبط قناة الترحيب: {channel.mention}",
+        )
+
+    @welcome_group.command(
+        name="message",
+        description="✏️ ضبط رسالة الترحيب (استخدم {member} {server})",
+    )
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(message="الرسالة")
-    async def welcome_message(self, interaction: discord.Interaction, message: str):
-        cfg = self.get_guild_config(interaction.guild.id)
+    async def welcome_message(
+        self,
+        interaction: discord.Interaction,
+        message: str,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
         cfg["message"] = message
-        self.save_config()
-        await interaction.response.send_message(f"✅ | تم ضبط رسالة الترحيب\n```{message}```")
-    
-    @welcome_group.command(name="leave-message", description="👋 ضبط رسالة المغادرة")
+        self._save_cfg(interaction.guild.id)
+        await interaction.followup.send(
+            f"✅ | تم ضبط رسالة الترحيب\n```{message}```",
+        )
+
+    @welcome_group.command(
+        name="leave-message",
+        description="👋 ضبط رسالة المغادرة",
+    )
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(message="الرسالة")
-    async def leave_message(self, interaction: discord.Interaction, message: str):
-        cfg = self.get_guild_config(interaction.guild.id)
+    async def leave_message(
+        self,
+        interaction: discord.Interaction,
+        message: str,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
         cfg["leave_message"] = message
-        self.save_config()
-        await interaction.response.send_message(f"✅ | تم ضبط رسالة المغادرة\n```{message}```")
-    
-    @welcome_group.command(name="toggle", description="🔘 تشغيل/إيقاف الترحيب")
+        self._save_cfg(interaction.guild.id)
+        await interaction.followup.send(
+            f"✅ | تم ضبط رسالة المغادرة\n```{message}```",
+        )
+
+    @welcome_group.command(
+        name="toggle",
+        description="🔘 تشغيل/إيقاف الترحيب",
+    )
     @app_commands.default_permissions(administrator=True)
     async def welcome_toggle(self, interaction: discord.Interaction):
-        cfg = self.get_guild_config(interaction.guild.id)
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
         cfg["enabled"] = not cfg.get("enabled", True)
-        self.save_config()
+        self._save_cfg(interaction.guild.id)
         state = "🟢 شغال" if cfg["enabled"] else "🔴 متوقف"
-        await interaction.response.send_message(f"✅ | تم {state} نظام الترحيب")
-    
-    @welcome_group.command(name="dm-toggle", description="💬 تشغيل/إيقاف الرسالة الخاصة")
+        await interaction.followup.send(f"✅ | تم {state} نظام الترحيب")
+
+    @welcome_group.command(
+        name="dm-toggle",
+        description="💬 تشغيل/إيقاف الرسالة الخاصة",
+    )
     @app_commands.default_permissions(administrator=True)
     async def welcome_dm_toggle(self, interaction: discord.Interaction):
-        cfg = self.get_guild_config(interaction.guild.id)
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
         cfg["dm_welcome"] = not cfg.get("dm_welcome", True)
-        self.save_config()
+        self._save_cfg(interaction.guild.id)
         state = "✅ مفعلة" if cfg["dm_welcome"] else "❌ معطلة"
-        await interaction.response.send_message(f"✅ | تم {state} الرسالة الخاصة للترحيب")
-    
-    @welcome_group.command(name="autorole", description="🎖️ ضبط الرتبة التلقائية للمستخدمين الجدد")
+        await interaction.followup.send(f"✅ | تم {state} الرسالة الخاصة للترحيب")
+
+    @welcome_group.command(
+        name="autorole",
+        description="🎖️ ضبط الرتبة التلقائية للمستخدمين الجدد",
+    )
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(role="الرتبة (اسم أو none للإلغاء)")
-    async def welcome_autorole(self, interaction: discord.Interaction, role: str):
-        cfg = self.get_guild_config(interaction.guild.id)
+    async def welcome_autorole(
+        self,
+        interaction: discord.Interaction,
+        role: str,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        cfg = self._get_cfg(interaction.guild.id)
         if role.lower() == "none":
             cfg["auto_role"] = ""
-            self.save_config()
-            await interaction.response.send_message("✅ | تم إلغاء الرتبة التلقائية")
+            self._save_cfg(interaction.guild.id)
+            await interaction.followup.send("✅ | تم إلغاء الرتبة التلقائية")
         else:
             cfg["auto_role"] = role
-            self.save_config()
-            await interaction.response.send_message(f"✅ | تم ضبط الرتبة التلقائية: `{role}`")
+            self._save_cfg(interaction.guild.id)
+            await interaction.followup.send(
+                f"✅ | تم ضبط الرتبة التلقائية: `{role}`",
+            )
+
+    @welcome_group.command(
+        name="preview",
+        description="🖼️ معاينة صورة الترحيب",
+    )
+    @app_commands.default_permissions(administrator=True)
+    async def welcome_preview(self, interaction: discord.Interaction):
+        """Generate and send a welcome image preview (deferred for image work)."""
+        await interaction.response.defer(ephemeral=True)
+        if not WELCOME_HAS_PIL:
+            await interaction.followup.send(
+                "❌ | مكتبة Pillow غير مثبتة. لا يمكن إنشاء صورة الترحيب.",
+            )
+            return
+        try:
+            welcome_img = generate_welcome_image(
+                interaction.user,
+                interaction.guild,
+                len(interaction.guild.members),
+            )
+            if welcome_img is None:
+                await interaction.followup.send(
+                    "❌ | فشل إنشاء صورة الترحيب.",
+                )
+                return
+            file = discord.File(welcome_img, filename="welcome_preview.png")
+            embed = discord.Embed(
+                title="🖼️ | معاينة صورة الترحيب",
+                description="هكذا ستبدو صورة الترحيب للأعضاء الجدد",
+                color=BLURPLE,
+            )
+            embed.set_image(url="attachment://welcome_preview.png")
+            await interaction.followup.send(embed=embed, file=file)
+        except Exception as e:
+            await interaction.followup.send(
+                f"❌ | خطأ أثناء إنشاء الصورة: {e}",
+            )
+
 
 async def setup(bot):
     await bot.add_cog(Welcome(bot))

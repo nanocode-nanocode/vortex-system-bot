@@ -77,8 +77,9 @@ async def load_cogs():
 @bot.event
 async def on_ready():
     if HAS_DB:
-        incr_stat("total_guilds", len(bot.guilds))
-        incr_stat("total_users", sum(g.member_count or 0 for g in bot.guilds))
+        from db import set_stat
+        set_stat("total_guilds", len(bot.guilds))
+        set_stat("total_users", sum(g.member_count or 0 for g in bot.guilds))
         add_audit("bot_start", f"Bot started with {len(bot.guilds)} guilds, {bot.shard_count or 1} shards")
 
     print(f"\n{'='*50}")

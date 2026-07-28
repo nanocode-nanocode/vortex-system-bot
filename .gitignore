@@ -1,6 +1,11 @@
 __pycache__/
 *.pyc
 *.pyo
-.git/
+*.egg-info/
 .env
-**/__pycache__/
+*.zip
+data/*.json
+!data/fonts/
+!data/test_*.png
+config.json
+.vortex_token

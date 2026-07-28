@@ -2,24 +2,23 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 from discord.ui import View, Button
-import json, uuid
-from pathlib import Path
+import uuid
 
-BASE = Path(__file__).parent.parent
-DATA_FILE = BASE / "data" / "reaction_roles.json"
+from db import (
+    add_reaction_role,
+    remove_reaction_role,
+    get_reaction_panels,
+    add_audit,
+)
+
+# ── Sentinel — we store a row with role_id=0 to keep panel metadata
+#    (channel_id, message_id, title) in the DB even when the panel has no
+#    real roles yet.  No real Discord role will ever have id 0.
+_PANEL_SENTINEL_ROLE = 0
+_PANEL_SENTINEL_LABEL = "__panel__"
 
 
-# ── Data helpers ────────────────────────────────────────────────────────────
-
-def load_data():
-    if DATA_FILE.exists():
-        return json.loads(DATA_FILE.read_text())
-    return {}
-
-
-def save_data(data):
-    DATA_FILE.parent.mkdir(exist_ok=True)
-    DATA_FILE.write_text(json.dumps(data, indent=2))
+# ── helpers ──────────────────────────────────────────────────────────────────
 
 
 def parse_emoji(emoji_str: str):
@@ -35,22 +34,31 @@ def parse_emoji(emoji_str: str):
     return s
 
 
+def _strip_sentinel(roles: list) -> list:
+    """Filter out the sentinel placeholder that stores panel metadata."""
+    return [r for r in roles if r["role_id"] != _PANEL_SENTINEL_ROLE]
+
+
 # ── Persistent View ─────────────────────────────────────────────────────────
+
 
 class ReactionRoleView(View):
     """Dynamically built view — one button per role entry."""
 
     def __init__(self, panel_data: dict):
         super().__init__(timeout=None)
-        self.panel_data = panel_data  # kept for reference if needed
+        self.panel_data = panel_data
 
         for idx, entry in enumerate(panel_data.get("roles", [])):
             role_id = entry["role_id"]
+            if role_id == _PANEL_SENTINEL_ROLE:
+                continue  # skip the metadata placeholder
+
             label = entry.get("label", "Unknown")
             emoji_str = entry.get("emoji", "")
 
             custom_id = f"rr:{panel_data['id']}:{role_id}"
-            row = idx // 5  # max 5 buttons per row, discord allows 5 rows
+            row = idx // 5
 
             btn = Button(
                 label=label,
@@ -69,24 +77,27 @@ class ReactionRoleView(View):
         async def callback(interaction: discord.Interaction):
             guild = interaction.guild
             if not guild:
-                return await interaction.response.send_message(
+                await interaction.response.send_message(
                     "❌ | This command can only be used in a server.",
                     ephemeral=True,
                 )
+                return
 
             role = guild.get_role(role_id)
             if not role:
-                return await interaction.response.send_message(
+                await interaction.response.send_message(
                     "❌ | That role no longer exists on this server.",
                     ephemeral=True,
                 )
+                return
 
             member = interaction.user
             if not isinstance(member, discord.Member):
-                return await interaction.response.send_message(
+                await interaction.response.send_message(
                     "❌ | Could not resolve your member data.",
                     ephemeral=True,
                 )
+                return
 
             if role in member.roles:
                 await member.remove_roles(role, reason="Reaction Roles: removed")
@@ -106,8 +117,9 @@ class ReactionRoleView(View):
 
 # ── Cog ─────────────────────────────────────────────────────────────────────
 
+
 class ReactionRoles(commands.Cog):
-    """Reaction role panels using discord.ui buttons."""
+    """Reaction role panels using discord.ui buttons + PostgreSQL."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -116,9 +128,9 @@ class ReactionRoles(commands.Cog):
 
     async def cog_load(self):
         """Re-register persistent views after a restart."""
-        data = load_data()
-        for guild_id, guild_data in data.items():
-            for panel in guild_data.get("panels", []):
+        for guild in self.bot.guilds:
+            panels = get_reaction_panels(guild.id)
+            for panel in panels:
                 mid = panel.get("message_id")
                 if not mid:
                     continue
@@ -153,27 +165,25 @@ class ReactionRoles(commands.Cog):
         channel: discord.TextChannel,
         title: str,
     ):
-        """Send an empty panel, store it, and tell the admin how to add roles."""
+        """Send an empty panel, store metadata via sentinel, tell admin how to add roles."""
         await interaction.response.defer(ephemeral=True)
-
-        data = load_data()
-        gid = str(interaction.guild.id)
-        data.setdefault(gid, {"panels": []})
 
         panel_id = uuid.uuid4().hex[:8]
 
         panel = {
             "id": panel_id,
             "channel_id": channel.id,
-            "message_id": 0,  # filled after send
+            "message_id": 0,
             "title": title,
             "roles": [],
         }
 
         embed = discord.Embed(
             title=f"🎯 | {title}",
-            description="*No roles configured yet.*\nAn admin can add roles with "
-            f"`/reaction-roles add`.",
+            description=(
+                "*No roles configured yet.*\n"
+                "An admin can add roles with `/reaction-roles add`."
+            ),
             color=0x5865F2,
         )
         embed.set_footer(text=f"Panel ID: {panel_id} • VØRTΞX System")
@@ -182,11 +192,27 @@ class ReactionRoles(commands.Cog):
         msg = await channel.send(embed=embed, view=view)
         panel["message_id"] = msg.id
 
-        data[gid]["panels"].append(panel)
-        save_data(data)
+        # Store panel metadata in DB via sentinel row (no real roles yet)
+        add_reaction_role(
+            interaction.guild.id,
+            panel_id,
+            channel.id,
+            msg.id,
+            title,
+            _PANEL_SENTINEL_ROLE,
+            _PANEL_SENTINEL_LABEL,
+            "",
+        )
 
         # Register for persistence
         self.bot.add_view(view, message_id=msg.id)
+
+        add_audit(
+            "reaction_role_create",
+            f"Panel {panel_id} in {channel.id}",
+            interaction.guild.id,
+            interaction.user.id,
+        )
 
         await interaction.followup.send(
             f"✅ | Panel created in {channel.mention}\n"
@@ -215,36 +241,54 @@ class ReactionRoles(commands.Cog):
         emoji: str,
         panel_id: str,
     ):
-        data = load_data()
-        gid = str(interaction.guild.id)
-        panel = self._find_panel(data, gid, panel_id)
+        await interaction.response.defer(ephemeral=True)
+
+        panels = get_reaction_panels(interaction.guild.id)
+        panel = next((p for p in panels if p["id"] == panel_id), None)
+
         if panel is None:
-            return await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ | No panel with ID `{panel_id}` found in this server.",
                 ephemeral=True,
             )
+            return
 
         # Duplicate check
         if any(e["role_id"] == role.id for e in panel["roles"]):
-            return await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ | That role is already in this panel.",
                 ephemeral=True,
             )
+            return
 
-        panel["roles"].append(
-            {"role_id": role.id, "label": label, "emoji": emoji}
+        add_reaction_role(
+            interaction.guild.id,
+            panel_id,
+            panel["channel_id"],
+            panel["message_id"],
+            panel["title"],
+            role.id,
+            label,
+            emoji,
         )
-        save_data(data)
 
-        await self._refresh_panel(interaction.guild, panel)
+        # Refresh the panel message with up-to-date data
+        await self._refresh_panel(interaction.guild, panel_id)
 
-        await interaction.response.send_message(
+        add_audit(
+            "reaction_role_add",
+            f"Role {role.id} to panel {panel_id}",
+            interaction.guild.id,
+            interaction.user.id,
+        )
+
+        await interaction.followup.send(
             f"✅ | Added {role.mention} as **{label}** {emoji} "
             f"to panel `{panel_id}`.",
             ephemeral=True,
         )
 
-    # ── remove ────────────────────────────────────────────────────────────
+    # ── remove (single role from panel) ───────────────────────────────────
 
     @rr.command(name="remove", description="➖ Remove a role button from a panel")
     @app_commands.default_permissions(administrator=True)
@@ -258,29 +302,100 @@ class ReactionRoles(commands.Cog):
         role: discord.Role,
         panel_id: str,
     ):
-        data = load_data()
-        gid = str(interaction.guild.id)
-        panel = self._find_panel(data, gid, panel_id)
+        await interaction.response.defer(ephemeral=True)
+
+        panels = get_reaction_panels(interaction.guild.id)
+        panel = next((p for p in panels if p["id"] == panel_id), None)
+
         if panel is None:
-            return await interaction.response.send_message(
+            await interaction.followup.send(
                 f"❌ | No panel with ID `{panel_id}` found in this server.",
                 ephemeral=True,
             )
+            return
 
-        original_len = len(panel["roles"])
-        panel["roles"] = [e for e in panel["roles"] if e["role_id"] != role.id]
+        real_roles = _strip_sentinel(panel["roles"])
+        original_len = len(real_roles)
 
-        if len(panel["roles"]) == original_len:
-            return await interaction.response.send_message(
+        # Filter to find if the role is actually present
+        if not any(r["role_id"] == role.id for r in real_roles):
+            await interaction.followup.send(
                 "❌ | That role is not in this panel.",
                 ephemeral=True,
             )
+            return
 
-        save_data(data)
-        await self._refresh_panel(interaction.guild, panel)
+        remove_reaction_role(
+            interaction.guild.id, panel_id, role.id
+        )
 
-        await interaction.response.send_message(
+        # Refresh the panel message
+        await self._refresh_panel(interaction.guild, panel_id)
+
+        add_audit(
+            "reaction_role_remove",
+            f"Role {role.id} from panel {panel_id}",
+            interaction.guild.id,
+            interaction.user.id,
+        )
+
+        await interaction.followup.send(
             f"✅ | Removed {role.mention} from panel `{panel_id}`.",
+            ephemeral=True,
+        )
+
+    # ── delete (entire panel) ─────────────────────────────────────────────
+
+    @rr.command(name="delete", description="🗑️ Delete an entire reaction role panel")
+    @app_commands.default_permissions(administrator=True)
+    @app_commands.describe(
+        panel_id="ID of the panel to delete",
+    )
+    async def rr_delete(
+        self,
+        interaction: discord.Interaction,
+        panel_id: str,
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        panels = get_reaction_panels(interaction.guild.id)
+        panel = next((p for p in panels if p["id"] == panel_id), None)
+
+        if panel is None:
+            await interaction.followup.send(
+                f"❌ | No panel with ID `{panel_id}` found in this server.",
+                ephemeral=True,
+            )
+            return
+
+        # Remove all role rows (including sentinel)
+        for entry in panel["roles"]:
+            remove_reaction_role(
+                interaction.guild.id, panel_id, entry["role_id"]
+            )
+        # Also explicitly remove the sentinel (belt-and-suspenders)
+        remove_reaction_role(
+            interaction.guild.id, panel_id, _PANEL_SENTINEL_ROLE
+        )
+
+        # Try to clean up the panel message
+        channel = interaction.guild.get_channel(panel["channel_id"])
+        if channel:
+            try:
+                msg = await channel.fetch_message(panel["message_id"])
+                await msg.delete()
+            except Exception:
+                pass
+
+        add_audit(
+            "reaction_role_delete",
+            f"Panel {panel_id}",
+            interaction.guild.id,
+            interaction.user.id,
+        )
+
+        await interaction.followup.send(
+            f"✅ | Deleted panel `{panel_id}`.",
             ephemeral=True,
         )
 
@@ -289,15 +404,15 @@ class ReactionRoles(commands.Cog):
     @rr.command(name="list", description="📋 List all reaction role panels")
     @app_commands.default_permissions(administrator=True)
     async def rr_list(self, interaction: discord.Interaction):
-        data = load_data()
-        gid = str(interaction.guild.id)
+        await interaction.response.defer(ephemeral=True)
 
-        panels = data.get(gid, {}).get("panels", [])
+        panels = get_reaction_panels(interaction.guild.id)
         if not panels:
-            return await interaction.response.send_message(
+            await interaction.followup.send(
                 "❌ | No reaction role panels exist in this server.",
                 ephemeral=True,
             )
+            return
 
         embed = discord.Embed(
             title="🎯 | Reaction Role Panels",
@@ -307,7 +422,9 @@ class ReactionRoles(commands.Cog):
         for p in panels:
             ch = interaction.guild.get_channel(p["channel_id"])
             ch_mention = ch.mention if ch else "*#deleted-channel*"
-            n_roles = len(p["roles"])
+            real_roles = _strip_sentinel(p["roles"])
+            n_roles = len(real_roles)
+
             embed.add_field(
                 name=f"📦 {p['title']}",
                 value=(
@@ -319,7 +436,7 @@ class ReactionRoles(commands.Cog):
             )
 
         embed.set_footer(text=f"Total: {len(panels)} panel(s) • VØRTΞX System")
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     # ── prefix fallback commands ──────────────────────────────────────────
 
@@ -334,23 +451,22 @@ class ReactionRoles(commands.Cog):
         await ctx.send(
             "📋 **Reaction Roles** — use `/reaction-roles` for the full "
             "slash interface.\n"
-            "Available prefix subcommands: `create`, `add`, `remove`, `list`.\n"
+            "Available prefix subcommands: `create`, `add`, `remove`, `list`. "
+            "Also `/reaction-roles delete` for full panel deletion.\n"
             "Example: `!reactionroles create #general \"My Panel\"`"
         )
 
     @rr_prefix.command(name="create")
     @commands.has_permissions(administrator=True)
     async def rr_create_prefix(
-        self, ctx: commands.Context,
+        self,
+        ctx: commands.Context,
         channel: discord.TextChannel,
         *,
         title: str,
     ):
-        data = load_data()
-        gid = str(ctx.guild.id)
-        data.setdefault(gid, {"panels": []})
-
         panel_id = uuid.uuid4().hex[:8]
+
         panel = {
             "id": panel_id,
             "channel_id": channel.id,
@@ -370,9 +486,24 @@ class ReactionRoles(commands.Cog):
         msg = await channel.send(embed=embed, view=view)
         panel["message_id"] = msg.id
 
-        data[gid]["panels"].append(panel)
-        save_data(data)
+        add_reaction_role(
+            ctx.guild.id,
+            panel_id,
+            channel.id,
+            msg.id,
+            title,
+            _PANEL_SENTINEL_ROLE,
+            _PANEL_SENTINEL_LABEL,
+            "",
+        )
         self.bot.add_view(view, message_id=msg.id)
+
+        add_audit(
+            "reaction_role_create",
+            f"Panel {panel_id} in {channel.id}",
+            ctx.guild.id,
+            ctx.author.id,
+        )
 
         await ctx.send(
             f"✅ | Panel created in {channel.mention} — ID: `{panel_id}`"
@@ -381,82 +512,108 @@ class ReactionRoles(commands.Cog):
     @rr_prefix.command(name="add")
     @commands.has_permissions(administrator=True)
     async def rr_add_prefix(
-        self, ctx: commands.Context,
+        self,
+        ctx: commands.Context,
         panel_id: str,
         role: discord.Role,
         label: str,
         emoji: str,
     ):
-        data = load_data()
-        gid = str(ctx.guild.id)
-        panel = self._find_panel(data, gid, panel_id)
+        panels = get_reaction_panels(ctx.guild.id)
+        panel = next((p for p in panels if p["id"] == panel_id), None)
+
         if panel is None:
-            return await ctx.send(f"❌ | No panel with ID `{panel_id}`.")
+            await ctx.send(f"❌ | No panel with ID `{panel_id}`.")
+            return
 
         if any(e["role_id"] == role.id for e in panel["roles"]):
-            return await ctx.send("❌ | That role is already in this panel.")
+            await ctx.send("❌ | That role is already in this panel.")
+            return
 
-        panel["roles"].append(
-            {"role_id": role.id, "label": label, "emoji": emoji}
+        add_reaction_role(
+            ctx.guild.id,
+            panel_id,
+            panel["channel_id"],
+            panel["message_id"],
+            panel["title"],
+            role.id,
+            label,
+            emoji,
         )
-        save_data(data)
-        await self._refresh_panel(ctx.guild, panel)
+
+        await self._refresh_panel(ctx.guild, panel_id)
+
+        add_audit(
+            "reaction_role_add",
+            f"Role {role.id} to panel {panel_id}",
+            ctx.guild.id,
+            ctx.author.id,
+        )
+
         await ctx.send(f"✅ | Added {role.mention} ({label}) to panel.")
 
     @rr_prefix.command(name="remove")
     @commands.has_permissions(administrator=True)
     async def rr_remove_prefix(
-        self, ctx: commands.Context,
+        self,
+        ctx: commands.Context,
         panel_id: str,
         role: discord.Role,
     ):
-        data = load_data()
-        gid = str(ctx.guild.id)
-        panel = self._find_panel(data, gid, panel_id)
+        panels = get_reaction_panels(ctx.guild.id)
+        panel = next((p for p in panels if p["id"] == panel_id), None)
+
         if panel is None:
-            return await ctx.send(f"❌ | No panel with ID `{panel_id}`.")
+            await ctx.send(f"❌ | No panel with ID `{panel_id}`.")
+            return
 
-        before = len(panel["roles"])
-        panel["roles"] = [e for e in panel["roles"] if e["role_id"] != role.id]
-        if len(panel["roles"]) == before:
-            return await ctx.send("❌ | That role is not in this panel.")
+        real_roles = _strip_sentinel(panel["roles"])
+        if not any(r["role_id"] == role.id for r in real_roles):
+            await ctx.send("❌ | That role is not in this panel.")
+            return
 
-        save_data(data)
-        await self._refresh_panel(ctx.guild, panel)
+        remove_reaction_role(ctx.guild.id, panel_id, role.id)
+        await self._refresh_panel(ctx.guild, panel_id)
+
+        add_audit(
+            "reaction_role_remove",
+            f"Role {role.id} from panel {panel_id}",
+            ctx.guild.id,
+            ctx.author.id,
+        )
+
         await ctx.send(f"✅ | Removed {role.mention} from panel.")
 
     @rr_prefix.command(name="list")
     @commands.has_permissions(administrator=True)
     async def rr_list_prefix(self, ctx: commands.Context):
-        data = load_data()
-        gid = str(ctx.guild.id)
-        panels = data.get(gid, {}).get("panels", [])
+        panels = get_reaction_panels(ctx.guild.id)
         if not panels:
-            return await ctx.send("❌ | No panels exist in this server.")
+            await ctx.send("❌ | No panels exist in this server.")
+            return
 
         lines = []
         for p in panels:
             ch = ctx.guild.get_channel(p["channel_id"])
             ch_mention = ch.mention if ch else "*#deleted*"
+            real_roles = _strip_sentinel(p["roles"])
             lines.append(
                 f"📦 **{p['title']}** — ID: `{p['id']}` — {ch_mention} "
-                f"({len(p['roles'])} roles)"
+                f"({len(real_roles)} roles)"
             )
 
         await ctx.send("**🎯 Reaction Role Panels**\n" + "\n".join(lines))
 
     # ── internal helpers ──────────────────────────────────────────────────
 
-    @staticmethod
-    def _find_panel(data: dict, guild_id: str, panel_id: str):
-        """Return the panel dict or None."""
-        for p in data.get(guild_id, {}).get("panels", []):
-            if p["id"] == panel_id:
-                return p
-        return None
+    async def _refresh_panel(self, guild: discord.Guild, panel_id: str):
+        """Re-fetch panel from DB and edit its message + re-register view."""
+        # Re-fetch so we always have the latest state
+        panels = get_reaction_panels(guild.id)
+        panel = next((p for p in panels if p["id"] == panel_id), None)
+        if panel is None:
+            return
 
-    async def _refresh_panel(self, guild: discord.Guild, panel: dict):
-        """Edit the panel message to reflect current roles + re-register view."""
         channel = guild.get_channel(panel["channel_id"])
         if not channel:
             return
@@ -465,10 +622,12 @@ class ReactionRoles(commands.Cog):
         except Exception:
             return  # message deleted or inaccessible
 
-        if panel["roles"]:
+        real_roles = _strip_sentinel(panel["roles"])
+
+        if real_roles:
             desc = "\n".join(
                 f"{r['emoji']} **{r['label']}** — <@&{r['role_id']}>"
-                for r in panel["roles"]
+                for r in real_roles
             )
         else:
             desc = "*No roles configured yet.*"
@@ -479,7 +638,10 @@ class ReactionRoles(commands.Cog):
             color=0x5865F2,
         )
         embed.set_footer(
-            text=f"Panel ID: {panel['id']} • Click a button to get/remove the role"
+            text=(
+                f"Panel ID: {panel['id']} • "
+                "Click a button to get/remove the role"
+            )
         )
 
         view = ReactionRoleView(panel)
@@ -488,6 +650,7 @@ class ReactionRoles(commands.Cog):
 
 
 # ── setup ──────────────────────────────────────────────────────────────────
+
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(ReactionRoles(bot))

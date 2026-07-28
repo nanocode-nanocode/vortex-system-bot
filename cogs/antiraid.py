@@ -1,50 +1,40 @@
 import discord
 from discord.ext import commands
 from discord import app_commands
-import json, datetime, asyncio, time
+import datetime, time
 from pathlib import Path
 
-BASE = Path(__file__).parent.parent
-with open(BASE / "config.json") as f:
-    CONFIG = json.load(f)
+from db import get_antiraid_config, set_antiraid_config, add_audit
 
-CONFIG_PATH = BASE / "data" / "antiraid_config.json"
+EMBED_COLOR = 0x5865F2
+
+DEFAULT_CONFIG = {
+    "enabled": True,
+    "raid_joins": 10,
+    "raid_seconds": 10,
+    "in_raid": False,
+    "whitelist_roles": [],
+    "admin_channel": None,
+    "spam_msgs": 5,
+    "spam_seconds": 3,
+    "spam_action": "warn",
+    "bad_words": [],
+    "max_mentions": 5,
+}
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────
 
-def load_config():
-    CONFIG_PATH.parent.mkdir(exist_ok=True)
-    if not CONFIG_PATH.exists():
-        CONFIG_PATH.write_text("{}")
-    return json.loads(CONFIG_PATH.read_text())
-
-
-def save_config(data):
-    CONFIG_PATH.parent.mkdir(exist_ok=True)
-    CONFIG_PATH.write_text(json.dumps(data, indent=2))
-
-
 def get_guild_config(guild_id: int) -> dict:
-    """Return default-populated guild config, creating if missing."""
-    data = load_config()
-    gid = str(guild_id)
-    if gid not in data:
-        data[gid] = {
-            "enabled": True,
-            "raid_joins": 10,
-            "raid_seconds": 10,
-            "in_raid": False,
-            "whitelist_roles": [],
-            "admin_channel": None,
-            "spam_msgs": 5,
-            "spam_seconds": 3,
-            "spam_action": "warn",
-            "bad_words": [],
-            "max_mentions": 5,
-        }
-        save_config(data)
-    return data[gid]
+    """Return default-populated guild config from DB, creating if missing."""
+    cfg = get_antiraid_config(guild_id)
+    if not cfg:
+        set_antiraid_config(guild_id, **DEFAULT_CONFIG)
+        return dict(DEFAULT_CONFIG)
+    # Fill in any missing keys with defaults
+    full = dict(DEFAULT_CONFIG)
+    full.update(cfg)
+    return full
 
 
 async def apply_raid_lock(guild: discord.Guild, lock: bool):
@@ -146,9 +136,7 @@ class AntiRaid(commands.Cog):
 
         if recent_joins >= join_threshold and not cfg.get("in_raid", False):
             cfg["in_raid"] = True
-            data = load_config()
-            data[str(gid)]["in_raid"] = True
-            save_config(data)
+            set_antiraid_config(gid, in_raid=True)
 
             channel = await apply_raid_lock(member.guild, lock=True)
 
@@ -164,6 +152,8 @@ class AntiRaid(commands.Cog):
             )
             embed.set_footer(text=f"VØRTΞX Anti-Raid • {member.guild.name}")
             await send_to_admin_channel(member.guild, embed)
+
+            add_audit("raid_detected", f"{recent_joins} joins in {raid_window}s", gid)
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -317,16 +307,14 @@ class AntiRaid(commands.Cog):
         joins: int,
         seconds: int,
     ):
+        await interaction.response.defer()
         if joins < 1 or seconds < 1:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ | القيم يجب أن تكون أكبر من 0", ephemeral=True
             )
-        cfg = get_guild_config(interaction.guild.id)
-        cfg["raid_joins"] = joins
-        cfg["raid_seconds"] = seconds
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, raid_joins=joins, raid_seconds=seconds)
+
+        add_audit("antiraid_config", f"joins={joins}, seconds={seconds}", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="🛡️ **تم ضبط إعدادات الحماية**",
@@ -335,30 +323,32 @@ class AntiRaid(commands.Cog):
                 f"**الفترة الزمنية:** {seconds} ثانية\n"
                 f"يعني إذا دخل **{joins} أعضاء** خلال **{seconds} ثانية** يتم تفعيل الحماية."
             ),
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @antiraid.command(name="toggle", description="تفعيل/تعطيل نظام الحماية")
     @app_commands.default_permissions(administrator=True)
     async def antiraid_toggle(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
-        cfg["enabled"] = not cfg.get("enabled", True)
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        new_enabled = not cfg.get("enabled", True)
+        set_antiraid_config(interaction.guild.id, enabled=new_enabled)
 
-        status = "✅ **مفعل**" if cfg["enabled"] else "❌ **معطل**"
+        add_audit("antiraid_toggle", f"enabled={new_enabled}", interaction.guild.id, interaction.user.id)
+
+        status = "✅ **مفعل**" if new_enabled else "❌ **معطل**"
         embed = discord.Embed(
             title="🛡️ **حالة الحماية**",
             description=f"النظام الآن: {status}",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @antiraid.command(name="status", description="عرض إعدادات الحماية الحالية")
     @app_commands.default_permissions(administrator=True)
     async def antiraid_status(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         in_raid = "🚨 **في وضع الهجوم**" if cfg.get("in_raid") else "✅ **وضع طبيعي**"
         enabled = "✅ مفعل" if cfg.get("enabled", True) else "❌ معطل"
@@ -375,7 +365,7 @@ class AntiRaid(commands.Cog):
 
         embed = discord.Embed(
             title="🛡️ **إعدادات Anti-Raid**",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
             timestamp=datetime.datetime.now(),
         )
         embed.add_field(name="الحالة", value=enabled, inline=True)
@@ -390,7 +380,7 @@ class AntiRaid(commands.Cog):
         embed.add_field(name="قناة الإدارة", value=admin_ch_str, inline=False)
         embed.set_footer(text="VØRTΞX Anti-Raid")
 
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── Whitelist sub-group ────────────────────────────────────────────
 
@@ -406,24 +396,24 @@ class AntiRaid(commands.Cog):
     async def whitelist_add(
         self, interaction: discord.Interaction, role: discord.Role
     ):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         whitelist_roles = cfg.get("whitelist_roles", [])
         if role.id in whitelist_roles:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"⚠️ | الرول {role.mention} موجود مسبقاً في القائمة", ephemeral=True
             )
         whitelist_roles.append(role.id)
-        cfg["whitelist_roles"] = whitelist_roles
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, whitelist_roles=whitelist_roles)
+
+        add_audit("whitelist_add", f"role={role.id} ({role.name})", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="☑️ **تمت الإضافة**",
             description=f"تمت إضافة {role.mention} إلى قائمة الاستثناء بنجاح.",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @whitelist.command(name="remove", description="إزالة رول من قائمة الاستثناء")
     @app_commands.default_permissions(administrator=True)
@@ -431,32 +421,33 @@ class AntiRaid(commands.Cog):
     async def whitelist_remove(
         self, interaction: discord.Interaction, role: discord.Role
     ):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         whitelist_roles = cfg.get("whitelist_roles", [])
         if role.id not in whitelist_roles:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"⚠️ | الرول {role.mention} ليس في القائمة", ephemeral=True
             )
         whitelist_roles.remove(role.id)
-        cfg["whitelist_roles"] = whitelist_roles
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, whitelist_roles=whitelist_roles)
+
+        add_audit("whitelist_remove", f"role={role.id} ({role.name})", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="☑️ **تمت الإزالة**",
             description=f"تمت إزالة {role.mention} من قائمة الاستثناء بنجاح.",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @whitelist.command(name="list", description="عرض رولات الاستثناء")
     @app_commands.default_permissions(administrator=True)
     async def whitelist_list(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         whitelist_roles = cfg.get("whitelist_roles", [])
         if not whitelist_roles:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "📭 | لا يوجد رولات مستثناة حالياً", ephemeral=True
             )
 
@@ -468,9 +459,9 @@ class AntiRaid(commands.Cog):
         embed = discord.Embed(
             title="☑️ **رولات الاستثناء**",
             description="\n".join(f"• {r}" for r in mentions),
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── Auto-Mod Command Group ─────────────────────────────────────────
 
@@ -497,17 +488,14 @@ class AntiRaid(commands.Cog):
         seconds: int,
         action: app_commands.Choice[str],
     ):
+        await interaction.response.defer()
         if msgs < 1 or seconds < 1:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ | القيم يجب أن تكون أكبر من 0", ephemeral=True
             )
-        cfg = get_guild_config(interaction.guild.id)
-        cfg["spam_msgs"] = msgs
-        cfg["spam_seconds"] = seconds
-        cfg["spam_action"] = action.value
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, spam_msgs=msgs, spam_seconds=seconds, spam_action=action.value)
+
+        add_audit("automod_spam", f"msgs={msgs}, seconds={seconds}, action={action.value}", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="⚡ **تم ضبط إعدادات السبام**",
@@ -516,9 +504,9 @@ class AntiRaid(commands.Cog):
                 f"**الفترة:** {seconds} ثانية\n"
                 f"**الإجراء:** `{action.value}`"
             ),
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     badwords = app_commands.Group(
         name="badwords",
@@ -530,69 +518,70 @@ class AntiRaid(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(word="الكلمة المراد منعها")
     async def badwords_add(self, interaction: discord.Interaction, word: str):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         bad_words = cfg.get("bad_words", [])
         word_lower = word.lower().strip()
         if not word_lower:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ | الكلمة لا يمكن أن تكون فارغة", ephemeral=True
             )
         if word_lower in bad_words:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"⚠️ | الكلمة `{word_lower}` موجودة مسبقاً", ephemeral=True
             )
         bad_words.append(word_lower)
-        cfg["bad_words"] = bad_words
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, bad_words=bad_words)
+
+        add_audit("badwords_add", f"word={word_lower}", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="🔤 **تمت الإضافة**",
             description=f"تمت إضافة `{word_lower}` إلى قائمة الكلمات الممنوعة.",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @badwords.command(name="remove", description="إزالة كلمة من الممنوعة")
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(word="الكلمة المراد إزالتها")
     async def badwords_remove(self, interaction: discord.Interaction, word: str):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         bad_words = cfg.get("bad_words", [])
         word_lower = word.lower().strip()
         if word_lower not in bad_words:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 f"⚠️ | الكلمة `{word_lower}` ليست في القائمة", ephemeral=True
             )
         bad_words.remove(word_lower)
-        cfg["bad_words"] = bad_words
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, bad_words=bad_words)
+
+        add_audit("badwords_remove", f"word={word_lower}", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="🔤 **تمت الإزالة**",
             description=f"تمت إزالة `{word_lower}` من قائمة الكلمات الممنوعة.",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     @badwords.command(name="list", description="عرض الكلمات الممنوعة")
     @app_commands.default_permissions(administrator=True)
     async def badwords_list(self, interaction: discord.Interaction):
+        await interaction.response.defer()
         cfg = get_guild_config(interaction.guild.id)
         bad_words = cfg.get("bad_words", [])
         if not bad_words:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "📭 | لا يوجد كلمات ممنوعة حالياً", ephemeral=True
             )
         embed = discord.Embed(
             title="🔤 **الكلمات الممنوعة**",
             description="\n".join(f"• `{w}`" for w in bad_words),
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
     # ── Mentions setting (under automod) ───────────────────────────────
 
@@ -600,22 +589,21 @@ class AntiRaid(commands.Cog):
     @app_commands.default_permissions(administrator=True)
     @app_commands.describe(max="الحد الأقصى للمنشن في الرسالة الواحدة")
     async def automod_mentions(self, interaction: discord.Interaction, max: int):
+        await interaction.response.defer()
         if max < 1:
-            return await interaction.response.send_message(
+            return await interaction.followup.send(
                 "❌ | الحد يجب أن يكون 1 على الأقل", ephemeral=True
             )
-        cfg = get_guild_config(interaction.guild.id)
-        cfg["max_mentions"] = max
-        data = load_config()
-        data[str(interaction.guild.id)] = cfg
-        save_config(data)
+        set_antiraid_config(interaction.guild.id, max_mentions=max)
+
+        add_audit("automod_mentions", f"max_mentions={max}", interaction.guild.id, interaction.user.id)
 
         embed = discord.Embed(
             title="📢 **تم ضبط حد المنشن**",
             description=f"الحد الأقصى للمنشن أصبح: **{max}** منشن لكل رسالة",
-            color=CONFIG.get("color", 0x5865F2),
+            color=EMBED_COLOR,
         )
-        await interaction.response.send_message(embed=embed)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

@@ -1,128 +1,68 @@
+#!/usr/bin/env python3
 """
-Custom Commands Cog — إنشاء أوامر مخصصة
-Users with admin can create custom text commands that the bot responds to.
+VØRTΞX System Bot — Custom Commands (DB)
+Database-backed custom commands per guild.
 """
 import discord
 from discord.ext import commands
 from discord import app_commands
-import json, datetime
+import json
 from pathlib import Path
 
 BASE = Path(__file__).parent.parent
-DATA_FILE = BASE / "data" / "custom_commands.json"
+with open(BASE / "config.json") as f:
+    CONFIG = json.load(f)
 
-def load_data():
-    if DATA_FILE.exists():
-        try:
-            return json.loads(DATA_FILE.read_text())
-        except:
-            pass
-    return {}
-
-def save_data(data):
-    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
-    DATA_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+# ── DB ────────────────────────────────────────────────────────────────
+from db import set_custom_command, del_custom_command, get_custom_command, list_custom_commands
 
 class CustomCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self.data = load_data()
 
-    def get_guild_cmds(self, guild_id):
-        gid = str(guild_id)
-        if gid not in self.data:
-            self.data[gid] = {}
-        return self.data[gid]
+    @app_commands.command(name="addcommand", description="➕ أضف أمر مخصص للسيرفر")
+    @app_commands.describe(name="اسم الأمر", response="الرد")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def add_command(self, interaction: discord.Interaction, name: str, response: str):
+        await interaction.response.defer(ephemeral=True)
+        set_custom_command(interaction.guild_id, name, response, interaction.user.id)
+        await interaction.followup.send(f"✅ تم إضافة الأمر `{name}` بنجاح!", ephemeral=True)
 
-    custom_group = app_commands.Group(
-        name="commands",
-        description="إدارة الأوامر المخصصة",
-        default_permissions=discord.Permissions(administrator=True),
-    )
-
-    @custom_group.command(name="add", description="إضافة أمر مخصص جديد")
-    @app_commands.describe(
-        trigger="كلمة الأمر (بدون prefix)",
-        response="الرد الذي سيرسله البوت"
-    )
-    async def cc_add(self, interaction: discord.Interaction, trigger: str, response: str):
-        """إضافة أمر مخصص"""
-        gcmds = self.get_guild_cmds(interaction.guild_id)
-        trigger_lower = trigger.lower().strip()
-        
-        if not trigger_lower:
-            await interaction.response.send_message("❌ | كلمة الأمر لا يمكن أن تكون فارغة!", ephemeral=True)
-            return
-        
-        gcmds[trigger_lower] = {
-            "response": response,
-            "author_id": interaction.user.id,
-            "created_at": datetime.datetime.utcnow().isoformat()
-        }
-        save_data(self.data)
-        
-        embed = discord.Embed(
-            title="✅ أمر مخصص مضاف",
-            description=f"**الأمر:** `!{trigger_lower}`\n**الرد:** {response[:500]}",
-            color=discord.Color.green()
-        )
-        embed.set_footer(text=f"بواسطة {interaction.user.display_name}")
-        await interaction.response.send_message(embed=embed, ephemeral=False)
-
-    @custom_group.command(name="remove", description="حذف أمر مخصص")
-    @app_commands.describe(trigger="كلمة الأمر للحذف")
-    async def cc_remove(self, interaction: discord.Interaction, trigger: str):
-        """حذف أمر مخصص"""
-        gcmds = self.get_guild_cmds(interaction.guild_id)
-        trigger_lower = trigger.lower().strip()
-        
-        if trigger_lower in gcmds:
-            del gcmds[trigger_lower]
-            save_data(self.data)
-            await interaction.response.send_message(f"✅ | تم حذف الأمر `!{trigger_lower}`", ephemeral=False)
+    @app_commands.command(name="delcommand", description="🗑️ احذف أمر مخصص")
+    @app_commands.describe(name="اسم الأمر")
+    @app_commands.checks.has_permissions(administrator=True)
+    async def del_command(self, interaction: discord.Interaction, name: str):
+        await interaction.response.defer(ephemeral=True)
+        if del_custom_command(interaction.guild_id, name):
+            await interaction.followup.send(f"✅ تم حذف الأمر `{name}`!", ephemeral=True)
         else:
-            await interaction.response.send_message(f"❌ | الأمر `!{trigger_lower}` غير موجود!", ephemeral=True)
+            await interaction.followup.send(f"❌ الأمر `{name}` غير موجود!", ephemeral=True)
 
-    @custom_group.command(name="list", description="عرض جميع الأوامر المخصصة")
-    async def cc_list(self, interaction: discord.Interaction):
-        """عرض قائمة الأوامر المخصصة"""
-        gcmds = self.get_guild_cmds(interaction.guild_id)
-        
-        if not gcmds:
-            await interaction.response.send_message("📭 | لا توجد أوامر مخصصة في هذا السيرفر.", ephemeral=False)
+    @app_commands.command(name="commands", description="📋 قائمة الأوامر المخصصة")
+    async def list_commands(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        cmds = list_custom_commands(interaction.guild_id)
+        if not cmds:
+            await interaction.followup.send("📭 لا توجد أوامر مخصصة!", ephemeral=True)
             return
-        
         embed = discord.Embed(
             title="📋 الأوامر المخصصة",
-            description="\n".join(f"`!{k}`" for k in sorted(gcmds.keys())),
-            color=discord.Color.blue()
+            description="\n".join(f"`{c['name']}` → {c['response'][:50]}" for c in cmds),
+            color=CONFIG.get("color", 5793266)
         )
-        embed.set_footer(text=f"المجموع: {len(gcmds)} أمر")
-        await interaction.response.send_message(embed=embed, ephemeral=False)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        """معالجة الأوامر المخصصة"""
         if message.author.bot or not message.guild:
             return
-        
-        # Prefix command processing
-        prefix = "!"
+        prefix = CONFIG.get("prefix", "!")
         if not message.content.startswith(prefix):
             return
-        
-        trigger = message.content[len(prefix):].strip().lower()
-        gcmds = self.get_guild_cmds(message.guild.id)
-        
-        if trigger in gcmds:
-            cmd_data = gcmds[trigger]
-            response = cmd_data.get("response", "")
-            # Replace placeholders
-            response = response.replace("{user}", message.author.mention)
-            response = response.replace("{username}", message.author.display_name)
-            response = response.replace("{server}", message.guild.name)
-            
-            await message.reply(response, mention_author=False)
+        cmd_name = message.content[len(prefix):].split()[0].lower()
+        response = get_custom_command(message.guild.id, cmd_name)
+        if response:
+            await message.channel.send(response)
 
 async def setup(bot):
     await bot.add_cog(CustomCommands(bot))
