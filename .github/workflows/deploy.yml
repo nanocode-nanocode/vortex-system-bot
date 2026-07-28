@@ -25,7 +25,7 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: 📦 Install deps (no runtime)
+      - name: 📦 Install deps
         run: |
           python -m pip install --upgrade pip
           pip install pyflakes pygount
@@ -47,6 +47,7 @@ jobs:
     name: 🐳 Build & Push Docker
     runs-on: ubuntu-latest
     needs: [check]
+    if: success()
     permissions:
       contents: read
       packages: write
@@ -88,12 +89,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── 3. Deploy to Koyeb ───────────────────────────────────
+  # ── 3. Deploy to Koyeb (optional) ─────────────────────────
   deploy-koyeb:
     name: 🌍 Deploy to Koyeb
     runs-on: ubuntu-latest
     needs: [docker]
-    if: github.ref == 'refs/heads/main'
+    if: success() && secrets.KOYEB_API_TOKEN != ''
     steps:
       - uses: actions/checkout@v4
 
@@ -106,12 +107,12 @@ jobs:
           service_port: 8080
           docker_image: ghcr.io/${{ github.repository }}:latest
 
-  # ── 4. Telegram Notification ──────────────────────────────
+  # ── 4. Notify (optional) ──────────────────────────────────
   notify:
     name: 📬 Notify
     runs-on: ubuntu-latest
     needs: [check, docker]
-    if: always()
+    if: always() && secrets.TELEGRAM_BOT_TOKEN != ''
     steps:
       - name: 💬 Telegram notification
         uses: appleboy/telegram-action@master
@@ -120,10 +121,8 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           format: markdown
           message: |
-            ⬡ **VØRTΞX System Bot** — Deploy ${{ job.status == 'success' && '✅' || '❌' }}
+            ⬡ **VØRTΞX System Bot** — ${{ needs.check.result == 'success' && needs.docker.result == 'success' && '✅' || '❌' }}
 
             *Branch:* `${{ github.ref_name }}`
             *Commit:* [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-            *Status:* ${{ job.status }}
-            *Check:* ✅ `${{ needs.check.result }}`
-            *Docker:* 🐳 `${{ needs.docker.result }}`
+            *Status:* Check 🔍 `${{ needs.check.result }}` / Docker 🐳 `${{ needs.docker.result == 'skipped' && '⏳' || needs.docker.result }}` / Deploy 🌍 `${{ needs.deploy-koyeb.result || '⏳' }}`
