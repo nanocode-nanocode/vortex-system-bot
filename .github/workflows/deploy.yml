@@ -9,7 +9,6 @@ env:
   DOCKER_REGISTRY: ghcr.io
 
 jobs:
-  # ── 1. Check & Test ──────────────────────────────────────
   check:
     name: 🔍 Syntax & Audit
     runs-on: ubuntu-latest
@@ -17,119 +16,42 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-
-      - name: 🐍 Set up Python 3.12
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-
       - name: 📦 Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyflakes pygount
-
-      - name: 🔬 PyFlakes check
+        run: pip install pyflakes pygount
+      - name: 🔬 PyFlakes
         run: |
           pyflakes bot.py db.py i18n.py dashboard.py
           pyflakes cogs/*.py
-
-      - name: 📊 Lines of Code
+      - name: 📊 LOC
         run: |
           pygount --format=summary .
           echo "---"
           echo "Files: $(find . -name '*.py' -not -path './.git/*' | wc -l)"
           echo "Lines: $(wc -l < <(cat bot.py db.py i18n.py dashboard.py cogs/*.py 2>/dev/null))"
 
-  # ── 2. Docker Build & Push ────────────────────────────────
   docker:
-    name: 🐳 Build & Push Docker
+    name: 🐳 Docker
     runs-on: ubuntu-latest
     needs: [check]
     permissions:
-      contents: read
       packages: write
-    outputs:
-      image: ${{ steps.meta.outputs.tags }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: 🔧 Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: 🔧 Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: 🔑 Log in to GHCR
-        uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
           registry: ${{ env.DOCKER_REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🏷️ Metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}
-          tags: |
-            type=sha,prefix=,suffix=,format=short
-            type=ref,event=branch
-            latest
-
       - name: 🐳 Build & Push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  # ── 3. Deploy to Koyeb ───────────────────────────────────
-  deploy-koyeb:
-    name: 🌍 Deploy to Koyeb
-    runs-on: ubuntu-latest
-    needs: [docker]
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: 🚀 Deploy to Koyeb
-        if: ${{ secrets.KOYEB_API_TOKEN != '' }}
-        uses: koyeb/action-deploy@v1
-        with:
-          api_token: ${{ secrets.KOYEB_API_TOKEN }}
-          app_name: vortex-system-bot
-          service_name: bot
-          service_port: 8080
-          docker_image: ghcr.io/${{ github.repository }}:latest
-
-      - name: ⏭️ Deploy skipped
-        if: ${{ secrets.KOYEB_API_TOKEN == '' }}
-        run: echo "⚠️ KOYEB_API_TOKEN not set — skipping deploy"
-
-  # ── 4. Notify ────────────────────────────────────────────
-  notify:
-    name: 📬 Notify
-    runs-on: ubuntu-latest
-    needs: [check, docker]
-    if: always()
-    steps:
-      - name: 💬 Telegram notification
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN != '' }}
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            ⬡ **VØRTΞX System Bot** — ${{ needs.check.result == 'success' && '✅' || '❌' }}
-            *Branch:* \`${{ github.ref_name }}\`
-            *Commit:* [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
-            *Status:* Check 🔍 ${{ needs.check.result }} / Docker 🐳 ${{ needs.docker.result }} / Deploy 🌍 ${{ needs.deploy-koyeb.result }}
-
-      - name: ⏭️ Notification skipped
-        if: ${{ secrets.TELEGRAM_BOT_TOKEN == '' }}
-        run: echo "⚠️ TELEGRAM_BOT_TOKEN not set — skipping notification"
