@@ -34,15 +34,19 @@ done
 echo ""
 echo "▶️ Starting Dashboard on port 3000..."
 cd /workspaces/vortex-system-bot
-export PORT=3000
-nohup python3 dashboard.py > /tmp/dash.log 2>&1 &
+PORT=3000 nohup python3 dashboard.py > /tmp/dash.log 2>&1 &
 echo "Dashboard PID: $!"
 
-sleep 3
-if curl -sf http://localhost:3000/live > /dev/null 2>&1; then
-    echo "✅ Dashboard UP on port 3000"
-else
-    echo "⚠️ Dashboard may have issues, check /tmp/dash.log"
+for i in 1 2 3 4 5 6 7 8 9 10; do
+    sleep 1
+    if curl -sf http://localhost:3000/live > /dev/null 2>&1; then
+        echo "✅ Dashboard UP on port 3000"
+        break
+    fi
+done
+# Check if it succeeded
+if ! curl -sf http://localhost:3000/live > /dev/null 2>&1; then
+    echo "⚠️ Dashboard failed to start. Log:"
     cat /tmp/dash.log
 fi
 
