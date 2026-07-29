@@ -8,8 +8,12 @@ cd /workspaces/vortex-system-bot
 # Download config from private gist
 echo "📥 Downloading config..."
 curl -sL -o config.json "https://gist.githubusercontent.com/nanocode-nanocode/91f8925ed98da6fc50c4c2a5c5fb42a0/raw/307d6cd9e99872a31b9d48c84b1513914f028171/config.json" 2>&1
-ls -la config.json
-echo "Config first 50 chars: $(head -c 50 config.json)"
+# Check if valid JSON
+if ! python3 -c "import json; json.load(open('config.json'))" 2>/dev/null; then
+    echo "⚠️ Gist download failed, using embedded config"
+    echo "ewogICAgInRva2VuIjogIk1UVXlOemd4T0RJMk56UTFOVEF3TUROd0dmR0E5Ni4waUpFamF3UzRkRGMyVTFIOEpoZ25pcjRwVDNUeXBOR0xIUkYyQSIsCiAgICAicHJlZml4IjogIiEiLAogICAgImFkbWluX3JvbGVzIjogWyJBZG1pbiIsICJDRU8iLCAiT3duZXIiXSwKICAgICJtb2Rfcm9sZXMiOiBbIk1vZCIsICJBZG1pbiIsICJDRU8iLCAiT3duZXIiXSwKICAgICJ0aWNrZXRfY2F0ZWdvcnkiOiAiIFRpY2tldHMiLAogICAgImxvZ19jaGFubmVsIjogImxvZ3MiLAogICAgIndlbGNvbWVfY2hhbm5lbCI6ICJ3ZWxjb21lIiwKICAgICJtZW1iZXJfcm9sZSI6ICJNZW1iZXIiLAogICAgInN0YXR1cyI6ICLimaIgVsOYUlTilqggSE9TVCIsCiAgICAiY29sb3IiOiA1NzkyMDgyCn0=" | base64 -d > config.json
+fi
+echo "Config: $(head -c 30 config.json)..."
 
 echo ""
 echo "📦 Installing Python packages..."
