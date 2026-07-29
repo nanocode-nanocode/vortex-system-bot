@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VØRTΞX — {{ site.name }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0b0e;
+  --surface:#121418;
+  --surface2:#1a1d24;
+  --surface3:#21252e;
+  --border:#2a2e38;
+  --text:#ecedee;
+  --text2:#8b8e96;
+  --text3:#5c5f66;
+  --accent:#5865F2;
+  --accent2:#4752c4;
+  --green:#3ba55c;
+  --red:#ed4245;
+  --red-bg:#1f1315;
+  --red-border:#3a1d20;
+  --yellow:#fee75c;
+  --yellow-bg:#1f1e10;
+  --radius:12px;
+  --radius-lg:16px;
+}
+body{
+  font-family:'Cairo',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:16px;
+  max-width:480px;
+  margin:0 auto;
+  line-height:1.5;
+}
+
+/* Nav */
+.nav{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:6px;
+}
+.nav-btn{
+  flex:1;
+  text-align:center;
+  padding:8px 12px;
+  border-radius:var(--radius);
+  font-size:13px;
+  font-weight:600;
+  color:var(--text2);
+  text-decoration:none;
+  transition:.2s;
+}
+.nav-btn:hover{background:var(--surface2);color:var(--text);}
+.nav-btn.active{background:var(--accent);color:#fff;}
+
+/* Header */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+}
+.logo-icon{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,#5865F2,#7c3aed);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:16px;color:#fff;
+}
+.logo-text{font-weight:800;font-size:18px;letter-spacing:-0.5px;}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:-2px;}
+.header-actions{display:flex;gap:8px;}
+.header-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;cursor:pointer;transition:.2s;text-decoration:none;
+}
+.header-btn:hover{background:var(--surface3);color:var(--text);}
+
+/* Site Info Card */
+.info-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:20px;
+  margin-bottom:16px;
+}
+.info-header{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:16px;
+}
+.info-avatar{
+  width:48px;height:48px;
+  background:linear-gradient(135deg,#5865F2,#7c3aed);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:22px;color:#fff;
+}
+.info-name{font-size:18px;font-weight:800;}
+.info-id{font-size:12px;color:var(--text3);}
+.info-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;
+}
+.info-item{
+  background:var(--surface2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:12px;
+}
+.info-item .label{font-size:11px;color:var(--text3);font-weight:500;}
+.info-item .value{font-size:16px;font-weight:700;margin-top:4px;direction:ltr;display:inline-block;}
+.info-item .value.green{color:var(--green);}
+.info-item .value.red{color:var(--red);}
+
+/* Actions */
+.actions{
+  display:flex;gap:8px;margin-bottom:16px;
+}
+.action-btn{
+  flex:1;border:none;border-radius:var(--radius);
+  padding:12px;font-family:'Cairo',sans-serif;
+  font-size:13px;font-weight:700;cursor:pointer;transition:.2s;
+  text-align:center;
+}
+.action-btn.start{background:var(--green);color:#fff;}
+.action-btn.start:hover{background:#2d8b47;}
+.action-btn.stop{background:var(--red);color:#fff;}
+.action-btn.stop:hover{background:#c73a3d;}
+.action-btn.open{background:var(--accent);color:#fff;}
+.action-btn.open:hover{background:var(--accent2);}
+.action-btn.delete{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+.action-btn.delete:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-border);}
+
+/* Console */
+.console-section{margin-bottom:16px;}
+.console-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;
+}
+.console-title{font-size:14px;font-weight:700;}
+.console-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);padding:4px 12px;border-radius:8px;
+  font-family:'Cairo',sans-serif;font-size:12px;font-weight:600;
+  cursor:pointer;transition:.2s;
+}
+.console-btn:hover{background:var(--surface3);color:var(--text);}
+.console-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px;
+  font-family:'Cairo',monospace;font-size:12px;line-height:1.6;
+  white-space:pre-wrap;color:var(--text2);
+  min-height:120px;max-height:300px;overflow-y:auto;
+}
+
+/* Code section */
+.code-section{margin-bottom:16px;}
+.code-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:8px;
+}
+.code-title{font-size:14px;font-weight:700;}
+.code-box{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px;
+  font-family:'Cairo',monospace;font-size:12px;line-height:1.4;
+  white-space:pre-wrap;color:var(--text);
+  min-height:80px;max-height:200px;overflow-y:auto;
+}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:10px 18px;
+  font-size:13px;font-weight:600;color:var(--text);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  display:none;z-index:200;animation:slideUp .3s ease;
+  white-space:nowrap;
+}
+.toast.show{display:block;}
+.toast.error{background:var(--red-bg);border-color:var(--red-border);color:var(--red);}
+.toast.success{background:rgba(59,165,92,0.15);border-color:rgba(59,165,92,0.3);color:var(--green);}
+
+@keyframes slideUp{
+  from{opacity:0;transform:translateX(-50%) translateY(20px);}
+  to{opacity:1;transform:translateX(-50%) translateY(0);}
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav">
+  <a href="/" class="nav-btn">🤖 البوتات</a>
+  <a href="/sites" class="nav-btn active">🌐 المواقع</a>
+  <a href="/live" class="nav-btn">📊 الإحصائيات</a>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">✦</div>
+    <div>
+      <div class="logo-text">VØRTΞX</div>
+      <div class="logo-sub">تفاصيل الموقع</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="/sites" class="header-btn" title="رجوع">🔙</a>
+  </div>
+</div>
+
+<!-- Site Info -->
+<div class="info-card">
+  <div class="info-header">
+    <div class="info-avatar">🌐</div>
+    <div>
+      <div class="info-name">{{ site.name }}</div>
+      <div class="info-id">{{ site_id }} · {{ site.main_file }}</div>
+    </div>
+  </div>
+  <div class="info-grid">
+    <div class="info-item">
+      <div class="label">🔄 الحالة</div>
+      <div class="value" id="statusValue">جاري التحميل...</div>
+    </div>
+    <div class="info-item">
+      <div class="label">🔌 المنفذ</div>
+      <div class="value" id="portValue">{{ site.port }}</div>
+    </div>
+    <div class="info-item">
+      <div class="label">📦 الحجم</div>
+      <div class="value">{{ site.size }}KB</div>
+    </div>
+    <div class="info-item">
+      <div class="label">📅 الإنشاء</div>
+      <div class="value" style="font-size:13px;">{{ site.created[:10] if site.created else '-' }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="actions" id="actionsContainer">
+  <button class="action-btn start" id="startBtn" onclick="startSite()">▶ تشغيل</button>
+  <button class="action-btn open" id="openBtn" onclick="openSite()">🔗 فتح</button>
+  <button class="action-btn delete" onclick="deleteSite()">🗑 حذف</button>
+</div>
+
+<!-- Console -->
+<div class="console-section">
+  <div class="console-header">
+    <div class="console-title">📋 سجل الكونسول</div>
+    <button class="console-btn" onclick="refreshConsole()">🔄 تحديث</button>
+  </div>
+  <div class="console-box" id="consoleBox">🚀 تحميل...</div>
+</div>
+
+<!-- Code -->
+<div class="code-section">
+  <div class="code-header">
+    <div class="code-title">📝 كود الموقع</div>
+    <button class="console-btn" onclick="refreshCode()">🔄 تحميل</button>
+  </div>
+  <div class="code-box" id="codeBox">🚀 تحميل...</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SITE_ID = '{{ site_id }}';
+let refreshInterval = null;
+
+window.onload = function(){
+  refreshStatus();
+  refreshConsole();
+  refreshCode();
+  refreshInterval = setInterval(() => {
+    refreshStatus();
+    refreshConsole();
+  }, 3000);
+};
+
+async function refreshStatus(){
+  try{
+    const r = await fetch('/api/sites');
+    const data = await r.json();
+    const site = data[SITE_ID];
+    if(!site) return;
+    
+    const alive = site.process_alive;
+    const sv = document.getElementById('statusValue');
+    if(alive){
+      sv.className = 'value green';
+      sv.textContent = '🟢 شغال';
+    } else {
+      sv.className = 'value red';
+      sv.textContent = '🔴 متوقف';
+    }
+    
+    // Update buttons
+    const startBtn = document.getElementById('startBtn');
+    const openBtn = document.getElementById('openBtn');
+    if(alive){
+      startBtn.className = 'action-btn stop';
+      startBtn.textContent = '⏹ إيقاف';
+      startBtn.onclick = stopSite;
+      openBtn.style.display = 'block';
+    } else {
+      startBtn.className = 'action-btn start';
+      startBtn.textContent = '▶ تشغيل';
+      startBtn.onclick = startSite;
+      openBtn.style.display = 'none';
+    }
+    
+    if(site.port){
+      document.getElementById('portValue').textContent = site.port;
+    }
+  } catch(e){}
+}
+
+async function startSite(){
+  showToast('⏳', 'جاري تشغيل الموقع...');
+  try{
+    const r = await fetch(`/api/site/${SITE_ID}/start`, {method:'POST'});
+    const d = await r.json();
+    if(d.success){
+      showToast('✅', `تم تشغيل الموقع على المنفذ ${d.port}!`);
+      refreshStatus();
+    } else {
+      showToast('❌', d.error||'فشل التشغيل');
+    }
+  } catch(e){
+    showToast('❌', 'خطأ في الاتصال');
+  }
+}
+
+async function stopSite(){
+  if(!confirm('⏹ تأكيد إيقاف الموقع؟')) return;
+  try{
+    const r = await fetch(`/api/site/${SITE_ID}/stop`, {method:'POST'});
+    const d = await r.json();
+    if(d.success){
+      showToast('✅', 'تم إيقاف الموقع');
+      refreshStatus();
+    }
+  } catch(e){}
+}
+
+async function deleteSite(){
+  if(!confirm('🗑 تأكيد حذف الموقع؟ لا يمكن التراجع!')) return;
+  try{
+    const r = await fetch(`/api/site/${SITE_ID}/delete`, {method:'POST'});
+    const d = await r.json();
+    if(d.success){
+      showToast('✅', 'تم حذف الموقع');
+      setTimeout(() => { window.location.href='/sites'; }, 1000);
+    }
+  } catch(e){}
+}
+
+function openSite(){
+  const portEl = document.getElementById('portValue');
+  const port = parseInt(portEl.textContent);
+  if(port && port > 0){
+    window.open(`http://localhost:${port}`, '_blank');
+  } else {
+    showToast('❌', 'الموقع ما عنده منفذ');
+  }
+}
+
+async function refreshConsole(){
+  try{
+    const r = await fetch(`/api/site/${SITE_ID}/logs`);
+    const d = await r.json();
+    const box = document.getElementById('consoleBox');
+    box.textContent = d.logs || '📭 ما في سجلات بعد';
+    box.scrollTop = box.scrollHeight;
+  } catch(e){}
+}
+
+async function refreshCode(){
+  try{
+    const r = await fetch(`/api/site/${SITE_ID}/code`);
+    const d = await r.json();
+    document.getElementById('codeBox').textContent = d.code || '# ما في كود';
+  } catch(e){
+    document.getElementById('codeBox').textContent = '# فشل تحميل الكود';
+  }
+}
+
+// Toast
+let toastTimeout;
+function showToast(icon, msg){
+  const toast = document.getElementById('toast');
+  clearTimeout(toastTimeout);
+  toast.className = 'toast show';
+  toast.textContent = `${icon} ${msg}`;
+  toastTimeout = setTimeout(() => { toast.className='toast'; }, 2500);
+}
+</script>
+</body>
+</html>

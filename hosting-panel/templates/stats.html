@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VØRTΞX Stats — Live</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0b0e;
+  --surface:#121418;
+  --surface2:#1a1d24;
+  --surface3:#21252e;
+  --border:#2a2e38;
+  --text:#ecedee;
+  --text2:#8b8e96;
+  --text3:#5c5f66;
+  --accent:#5865F2;
+  --accent2:#7c3aed;
+  --green:#3ba55c;
+  --red:#ed4245;
+  --yellow:#fee75c;
+  --radius:12px;
+  --radius-lg:16px;
+}
+body{
+  font-family:'Cairo',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:16px;
+  max-width:480px;
+  margin:0 auto;
+  line-height:1.5;
+}
+/* Header */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:24px;
+  padding-top:8px;
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+}
+.logo-icon{
+  width:40px;height:40px;
+  background:linear-gradient(135deg,#5865F2,#7c3aed);
+  border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:900;color:#fff;
+  box-shadow:0 4px 15px rgba(88,101,242,.3);
+}
+.logo-text{
+  font-size:18px;font-weight:800;
+  background:linear-gradient(135deg,#ecedee,#8b8e96);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.logo-sub{
+  font-size:11px;color:var(--text3);letter-spacing:1px;
+}
+.status-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:var(--green);
+  display:inline-block;
+  animation:pulse 2s infinite;
+  box-shadow:0 0 8px rgba(59,165,92,.4);
+}
+@keyframes pulse{0%{opacity:1}50%{opacity:.5}100%{opacity:1}}
+.status-text{
+  font-size:12px;color:var(--text2);
+  display:flex;align-items:center;gap:6px;
+}
+
+/* Hero Stats */
+.hero{
+  background:linear-gradient(135deg,#121418 0%,#1a1d24 100%);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:28px 20px;
+  margin-bottom:20px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.hero::before{
+  content:'';position:absolute;top:-50%;right:-50%;
+  width:100%;height:100%;
+  background:radial-gradient(circle,rgba(88,101,242,.08) 0%,transparent 70%);
+}
+.hero-title{
+  font-size:14px;color:var(--text2);margin-bottom:8px;
+  letter-spacing:2px;text-transform:uppercase;
+}
+.hero-number{
+  font-size:56px;font-weight:900;
+  background:linear-gradient(135deg,#ecedee,#5865F2);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1;
+  margin-bottom:4px;
+}
+.hero-label{
+  font-size:14px;color:var(--text2);
+}
+
+/* Stats Grid */
+.grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  margin-bottom:20px;
+}
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px 16px;
+  transition:all .2s;
+}
+.card:active{transform:scale(.97)}
+.card-icon{
+  font-size:24px;margin-bottom:8px;
+}
+.card-num{
+  font-size:28px;font-weight:800;
+  color:var(--text);
+  line-height:1.2;
+}
+.card-label{
+  font-size:12px;color:var(--text2);
+  margin-top:2px;
+}
+.card.guilds .card-icon{color:#5865F2}
+.card.users .card-icon{color:#3ba55c}
+.card.commands .card-icon{color:#fee75c}
+.card.uptime .card-icon{color:#7c3aed}
+
+/* Activity Section */
+.section-title{
+  display:flex;align-items:center;gap:8px;
+  font-size:16px;font-weight:700;
+  margin-bottom:12px;
+  color:var(--text);
+}
+.section-title span{font-size:12px;color:var(--text3);font-weight:400;}
+
+.activity-list{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:8px 0;
+  margin-bottom:20px;
+  max-height:320px;
+  overflow-y:auto;
+}
+.activity-item{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 16px;
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+}
+.activity-item:last-child{border:none}
+.activity-icon{font-size:16px;width:24px;text-align:center;}
+.activity-msg{flex:1;color:var(--text);}
+.activity-time{font-size:11px;color:var(--text3);white-space:nowrap;}
+.empty-activity{
+  padding:28px;text-align:center;color:var(--text3);font-size:14px;
+}
+
+/* Bot Status Cards */
+.bot-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:16px;
+  margin-bottom:12px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.bot-info{display:flex;align-items:center;gap:12px;}
+.bot-avatar{
+  width:40px;height:40px;
+  border-radius:50%;
+  background:linear-gradient(135deg,#5865F2,#7c3aed);
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:800;font-size:14px;
+}
+.bot-name{font-size:14px;font-weight:600;color:var(--text);}
+.bot-id{font-size:11px;color:var(--text3);}
+.bot-status{
+  display:flex;align-items:center;gap:6px;
+  font-size:12px;font-weight:600;
+}
+.bot-status .dot{
+  width:8px;height:8px;border-radius:50%;
+}
+
+/* Footer */
+.footer{
+  text-align:center;
+  padding:20px;
+  color:var(--text3);
+  font-size:12px;
+}
+.footer a{
+  color:var(--accent);
+  text-decoration:none;
+}
+
+/* Loading shimmer */
+@keyframes shimmer{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
+.loading{animation:shimmer 1.5s infinite;}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">V</div>
+    <div>
+      <div class="logo-text">VØRTΞX STATS</div>
+      <div class="logo-sub">نظام الإحصائيات المباشر</div>
+    </div>
+  </div>
+  <div class="status-text" id="statusBadge">
+    <span class="status-dot"></span>
+    مباشر
+  </div>
+</div>
+
+<!-- Hero: Total Guilds -->
+<div class="hero" id="heroSection">
+  <div class="hero-title">خادمات البوت</div>
+  <div class="hero-number" id="heroGuilds">0</div>
+  <div class="hero-label">سيرفر حول العالم 🌍</div>
+</div>
+
+<!-- Stats Grid -->
+<div class="grid">
+  <div class="card guilds">
+    <div class="card-icon">🖥️</div>
+    <div class="card-num" id="statGuilds">0</div>
+    <div class="card-label">السيرفرات</div>
+  </div>
+  <div class="card users">
+    <div class="card-icon">👥</div>
+    <div class="card-num" id="statUsers">0</div>
+    <div class="card-label">المستخدمين</div>
+  </div>
+  <div class="card commands">
+    <div class="card-icon">⚡</div>
+    <div class="card-num" id="statCommands">0</div>
+    <div class="card-label">الأوامر المنفذة</div>
+  </div>
+  <div class="card uptime">
+    <div class="card-icon">⏱️</div>
+    <div class="card-num" id="statUptime">0</div>
+    <div class="card-label">ساعة تشغيل</div>
+  </div>
+</div>
+
+<!-- Activity Log -->
+<div class="section-title">
+  📋 سجل النشاطات
+  <span>آخر الأحداث</span>
+</div>
+<div class="activity-list" id="activityList">
+  <div class="empty-activity">⏳ جاري تحميل النشاطات...</div>
+</div>
+
+<!-- Bot Status -->
+<div class="section-title">
+  🤖 حالة البوتات
+  <span>الأنظمة العاملة</span>
+</div>
+<div id="botList">
+  <div class="bot-card">
+    <div class="bot-info">
+      <div class="bot-avatar">VTX</div>
+      <div>
+        <div class="bot-name">VTX BOT #4106</div>
+        <div class="bot-id">النظام الشامل</div>
+      </div>
+    </div>
+    <div class="bot-status" id="botStatus">
+      <span class="dot" style="background:var(--green)"></span>
+      شغال
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  VØRTΞX HOST — نظام الإحصائيات المباشر<br>
+  يتم التحديث كل 10 ثوانٍ 🔄
+</div>
+
+<script>
+// ── Live Stats Updates ──────────────────────────────────────────────
+function fmtNum(n){
+  if(n>=1e6) return (n/1e6).toFixed(1)+'M';
+  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
+  return n;
+}
+
+async function refreshStats(){
+  try{
+    const res = await fetch('/api/live-stats');
+    const d = await res.json();
+    
+    // Hero
+    document.getElementById('heroGuilds').textContent = fmtNum(d.total_guilds || 0);
+    
+    // Grid
+    document.getElementById('statGuilds').textContent = fmtNum(d.total_guilds || 0);
+    document.getElementById('statUsers').textContent = fmtNum(d.total_users || 0);
+    document.getElementById('statCommands').textContent = fmtNum(d.commands_used || 0);
+    
+    // Uptime in hours
+    const uptimeH = Math.floor((d.uptime_seconds || 0) / 3600);
+    document.getElementById('statUptime').textContent = uptimeH;
+    
+    // Activity
+    const list = document.getElementById('activityList');
+    if(d.activities && d.activities.length > 0){
+      list.innerHTML = d.activities.map(a => `
+        <div class="activity-item">
+          <span class="activity-icon">${a.icon || '📌'}</span>
+          <span class="activity-msg">${a.message}</span>
+          <span class="activity-time">${a.time}</span>
+        </div>
+      `).join('');
+    } else {
+      list.innerHTML = '<div class="empty-activity">✨ لا توجد نشاطات بعد</div>';
+    }
+    
+    // Bot status
+    const bs = document.getElementById('botStatus');
+    if(d.bots_alive > 0){
+      bs.innerHTML = '<span class="dot" style="background:var(--green)"></span> شغال';
+    } else {
+      bs.innerHTML = '<span class="dot" style="background:var(--red)"></span> متوقف';
+    }
+    
+  } catch(e){
+    console.warn('Stats fetch failed:', e);
+  }
+}
+
+// Initial load
+refreshStats();
+// Refresh every 10 seconds
+setInterval(refreshStats, 10000);
+</script>
+</body>
+</html>

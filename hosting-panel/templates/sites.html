@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VØRTΞX Host — Website Hosting</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0b0e;
+  --surface:#121418;
+  --surface2:#1a1d24;
+  --surface3:#21252e;
+  --border:#2a2e38;
+  --text:#ecedee;
+  --text2:#8b8e96;
+  --text3:#5c5f66;
+  --accent:#5865F2;
+  --accent2:#4752c4;
+  --green:#3ba55c;
+  --red:#ed4245;
+  --red-bg:#1f1315;
+  --red-border:#3a1d20;
+  --yellow:#fee75c;
+  --yellow-bg:#1f1e10;
+  --radius:12px;
+  --radius-lg:16px;
+}
+body{
+  font-family:'Cairo',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  padding:16px;
+  max-width:480px;
+  margin:0 auto;
+  line-height:1.5;
+}
+
+/* Nav */
+.nav{
+  display:flex;
+  gap:8px;
+  margin-bottom:16px;
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius-lg);
+  padding:6px;
+}
+.nav-btn{
+  flex:1;
+  text-align:center;
+  padding:8px 12px;
+  border-radius:var(--radius);
+  font-size:13px;
+  font-weight:600;
+  color:var(--text2);
+  text-decoration:none;
+  transition:.2s;
+}
+.nav-btn:hover{background:var(--surface2);color:var(--text);}
+.nav-btn.active{background:var(--accent);color:#fff;}
+
+/* Header */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.logo{
+  display:flex;align-items:center;gap:10px;
+}
+.logo-icon{
+  width:36px;height:36px;
+  background:linear-gradient(135deg,#5865F2,#7c3aed);
+  border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-weight:900;font-size:16px;color:#fff;
+}
+.logo-text{font-weight:800;font-size:18px;letter-spacing:-0.5px;}
+.logo-sub{font-size:11px;color:var(--text2);margin-top:-2px;}
+.header-actions{display:flex;gap:8px;}
+.header-btn{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;cursor:pointer;transition:.2s;
+}
+.header-btn:hover{background:var(--surface3);color:var(--text);}
+
+/* Stats Cards */
+.stats{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;
+}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px;
+}
+.stat-card .label{font-size:12px;color:var(--text2);font-weight:500;}
+.stat-card .value{font-size:28px;font-weight:800;margin-top:4px;}
+.stat-card .value.green{color:var(--green);}
+.stat-card .value.red{color:var(--red);}
+.stat-card .badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;padding:2px 8px;border-radius:100px;margin-top:6px;
+}
+.stat-card .badge.green{background:rgba(59,165,92,0.12);color:var(--green);}
+.stat-card .badge.red{background:rgba(237,66,69,0.12);color:var(--red);}
+.badge-dot{width:6px;height:6px;border-radius:50%;display:inline-block;}
+.badge-dot.green{background:var(--green);}
+.badge-dot.red{background:var(--red);}
+
+/* Alerts */
+.alert{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;border-radius:var(--radius);
+  margin-bottom:16px;font-size:13px;font-weight:600;
+}
+.alert.error{background:var(--red-bg);border:1px solid var(--red-border);color:var(--red);}
+.alert.success{background:rgba(59,165,92,0.1);border:1px solid rgba(59,165,92,0.2);color:var(--green);}
+.alert-icon{font-size:16px;flex-shrink:0;}
+
+/* Upload Zone */
+.upload-zone{
+  background:var(--surface);border:2px dashed var(--border);
+  border-radius:var(--radius-lg);padding:28px 20px;
+  text-align:center;cursor:pointer;transition:.25s;
+  margin-bottom:16px;position:relative;
+}
+.upload-zone:hover, .upload-zone.dragover{
+  border-color:var(--accent);background:rgba(88,101,242,0.04);
+}
+.upload-zone.has-file{border-color:var(--green);}
+.upload-icon{font-size:48px;margin-bottom:12px;display:block;}
+.upload-title{font-size:15px;font-weight:700;margin-bottom:4px;}
+.upload-sub{font-size:12px;color:var(--text2);}
+.upload-hint{font-size:11px;color:var(--text3);margin-top:10px;}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.upload-progress{
+  display:none;margin-top:12px;height:4px;background:var(--surface2);
+  border-radius:4px;overflow:hidden;
+}
+.upload-progress.active{display:block;}
+.upload-progress-bar{
+  height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--green));
+  border-radius:4px;transition:width .3s;
+}
+
+/* Sites Section */
+.section-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:12px;
+}
+.section-title{font-size:15px;font-weight:700;}
+.section-count{font-size:12px;color:var(--text3);background:var(--surface2);padding:2px 10px;border-radius:100px;}
+
+.sites-list{display:flex;flex-direction:column;gap:10px;}
+.site-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px;
+  transition:.2s;
+}
+.site-card-header{
+  display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
+}
+.site-card-info{display:flex;align-items:center;gap:10px;}
+.site-status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.site-status-dot.online{background:var(--green);box-shadow:0 0 6px rgba(59,165,92,0.5);}
+.site-status-dot.offline{background:var(--text3);}
+.site-name{font-weight:700;font-size:14px;}
+.site-id{font-size:11px;color:var(--text3);direction:ltr;display:inline-block;}
+.site-actions{display:flex;gap:6px;}
+.site-btn{
+  border:none;border-radius:8px;padding:6px 12px;
+  font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;
+  cursor:pointer;transition:.2s;
+}
+.site-btn.run{background:var(--green);color:#fff;}
+.site-btn.run:hover{background:#2d8b47;}
+.site-btn.stop{background:var(--red);color:#fff;}
+.site-btn.stop:hover{background:#c73a3d;}
+.site-btn.delete{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+.site-btn.delete:hover{background:var(--red-bg);color:var(--red);border-color:var(--red-border);}
+.site-btn.logs{background:var(--surface2);color:var(--text2);border:1px solid var(--border);}
+.site-btn.logs:hover{background:var(--surface3);color:var(--text);}
+.site-btn.open{background:var(--accent);color:#fff;}
+.site-btn.open:hover{background:var(--accent2);}
+.site-btn:disabled{opacity:0.4;pointer-events:none;}
+
+.site-card-footer{
+  display:flex;align-items:center;gap:12px;margin-top:8px;padding-top:8px;
+  border-top:1px solid var(--border);font-size:11px;color:var(--text3);
+}
+
+/* Empty State */
+.empty-state{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:40px 20px;
+  text-align:center;
+}
+.empty-icon{font-size:56px;margin-bottom:12px;opacity:0.5;}
+.empty-text{font-size:14px;color:var(--text2);font-weight:600;}
+
+/* Logs Modal */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(4px);z-index:100;padding:16px;
+  align-items:flex-end;justify-content:center;
+}
+.modal-overlay.active{display:flex;}
+.modal{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius-lg);width:100%;max-width:448px;
+  max-height:80vh;display:flex;flex-direction:column;
+}
+.modal-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid var(--border);
+}
+.modal-title{font-size:14px;font-weight:700;}
+.modal-close{
+  background:none;border:none;color:var(--text2);font-size:18px;
+  cursor:pointer;width:28px;height:28px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal-close:hover{background:var(--surface3);color:var(--text);}
+.modal-body{
+  padding:16px;overflow-y:auto;flex:1;
+  font-family:'Cairo',monospace;font-size:13px;line-height:1.6;
+  white-space:pre-wrap;color:var(--text2);min-height:120px;max-height:50vh;
+}
+.modal-footer{
+  padding:12px 16px;border-top:1px solid var(--border);
+  display:flex;gap:8px;
+}
+.modal-footer .site-btn{flex:1;text-align:center;}
+
+/* Toast */
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:10px 18px;
+  font-size:13px;font-weight:600;color:var(--text);
+  box-shadow:0 8px 32px rgba(0,0,0,0.5);
+  display:none;z-index:200;animation:slideUp .3s ease;
+  white-space:nowrap;
+}
+.toast.show{display:block;}
+.toast.error{background:var(--red-bg);border-color:var(--red-border);color:var(--red);}
+.toast.success{background:rgba(59,165,92,0.15);border-color:rgba(59,165,92,0.3);color:var(--green);}
+
+@keyframes slideUp{
+  from{opacity:0;transform:translateX(-50%) translateY(20px);}
+  to{opacity:1;transform:translateX(-50%) translateY(0);}
+}
+</style>
+</head>
+<body>
+
+<!-- Nav -->
+<div class="nav">
+  <a href="/" class="nav-btn">🤖 البوتات</a>
+  <a href="/sites" class="nav-btn active">🌐 المواقع</a>
+  <a href="/live" class="nav-btn">📊 الإحصائيات</a>
+</div>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">✦</div>
+    <div>
+      <div class="logo-text">VØRTΞX</div>
+      <div class="logo-sub">Website Hosting</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="header-btn" onclick="location.href='/logout'" title="تسجيل خروج">🚪</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="label">🌐 المواقع</div>
+    <div class="value" id="totalSites">0</div>
+    <div class="badge" id="sitesBadge">إجمالي</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">⚡ المنافذ</div>
+    <div class="value" id="portsAvailable">1000</div>
+    <div class="badge green"><span class="badge-dot green"></span> متاح</div>
+  </div>
+</div>
+
+<!-- Alert -->
+<div id="alertContainer"></div>
+
+<!-- Upload Zone -->
+<div class="upload-zone" id="uploadZone">
+  <span class="upload-icon">🌐</span>
+  <div class="upload-title">ارفع ملف ZIP للموقع</div>
+  <div class="upload-sub">اسحب وأفلت الملف هنا أو اضغط للاختيار</div>
+  <div class="upload-hint">يجب أن يتضمن: app.py (أو main.py) + requirements.txt</div>
+  <input type="file" accept=".zip" id="fileInput">
+  <div class="upload-progress" id="uploadProgress">
+    <div class="upload-progress-bar" id="uploadProgressBar"></div>
+  </div>
+</div>
+
+<!-- Sites Section -->
+<div class="section-header">
+  <div class="section-title">🌐 المواقع المستضافة</div>
+  <div class="section-count" id="sitesCount">0</div>
+</div>
+<div class="sites-list" id="sitesList">
+  <div class="empty-state" id="emptyState">
+    <div class="empty-icon">🌐</div>
+    <div class="empty-text">ما في مواقع بعد</div>
+  </div>
+</div>
+
+<!-- Logs Modal -->
+<div class="modal-overlay" id="logsModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="logsTitle">📋 السجلات</div>
+      <button class="modal-close" onclick="closeLogs()">✕</button>
+    </div>
+    <div class="modal-body" id="logsBody">🚀 انتظر... جاري تحميل السجلات</div>
+    <div class="modal-footer">
+      <button class="site-btn run" id="logsRefreshBtn" onclick="refreshLogs()">🔄 تحديث</button>
+      <button class="site-btn stop" id="logsStopBtn" onclick="stopFromLogs()">⏹ إيقاف</button>
+      <button class="site-btn delete" id="logsDeleteBtn" onclick="deleteFromLogs()">🗑 حذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// State
+let currentSiteId = null;
+let refreshInterval = null;
+
+// Load sites on startup
+window.onload = function(){ loadSites(); }
+
+// Upload handling
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  uploadZone.classList.add('dragover');
+});
+uploadZone.addEventListener('dragleave', () => {
+  uploadZone.classList.remove('dragover');
+});
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => {
+  if(fileInput.files.length) handleFile(fileInput.files[0]);
+  fileInput.value='';
+});
+
+function handleFile(file){
+  if(!file.name.endsWith('.zip')){
+    return showAlert('error','❌','فقط ملفات ZIP مسموحة');
+  }
+  if(file.size > 10*1024*1024){
+    return showAlert('error','❌','الملف كبير جداً (حد 10MB)');
+  }
+  
+  const form = new FormData();
+  form.append('file', file);
+  
+  const bar = document.getElementById('uploadProgressBar');
+  const prog = document.getElementById('uploadProgress');
+  prog.classList.add('active');
+  bar.style.width = '30%';
+  
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/site/upload');
+  xhr.onload = function(){
+    prog.classList.remove('active');
+    bar.style.width = '0%';
+    try{
+      const r = JSON.parse(xhr.responseText);
+      if(r.success){
+        showAlert('success','✅',`تم رفع ${r.site.name} بنجاح!`);
+        loadSites();
+      } else {
+        showAlert('error','⚠️',r.error||'فشل الرفع');
+      }
+    } catch(e){
+      showAlert('error','❌','خطأ في الاستجابة');
+    }
+  };
+  xhr.onerror = function(){
+    prog.classList.remove('active');
+    showAlert('error','❌','فشل الاتصال');
+  };
+  xhr.onprogress = function(e){
+    if(e.lengthComputable){
+      const pct = Math.min(90, Math.round(e.loaded/e.total*100));
+      bar.style.width = pct+'%';
+    }
+  };
+  xhr.send(form);
+}
+
+// Load sites
+async function loadSites(){
+  try{
+    const r = await fetch('/api/sites');
+    const data = await r.json();
+    renderSites(data);
+  } catch(e){
+    showAlert('error','❌','فشل تحميل المواقع');
+  }
+}
+
+function renderSites(sites){
+  const list = document.getElementById('sitesList');
+  const count = document.getElementById('sitesCount');
+  const totalSites = document.getElementById('totalSites');
+  const emptyEl = document.getElementById('emptyState');
+  
+  const entries = Object.entries(sites);
+  const total = entries.length;
+  const running = entries.filter(([_,s]) => s.status==='running').length;
+  
+  count.textContent = total;
+  totalSites.textContent = total;
+  
+  const badge = document.getElementById('sitesBadge');
+  if(running > 0){
+    badge.className = 'badge green';
+    badge.innerHTML = `<span class="badge-dot green"></span> ${running} شغال`;
+  } else {
+    badge.className = 'badge red';
+    badge.innerHTML = `<span class="badge-dot red"></span> ${total} متوقفة`;
+  }
+  
+  // Ports available
+  const used = entries.filter(([_,s]) => s.port).length;
+  document.getElementById('portsAvailable').textContent = 1000 - used;
+  
+  if(total === 0){
+    list.innerHTML = `
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🌐</div>
+        <div class="empty-text">ما في مواقع بعد</div>
+      </div>`;
+    return;
+  }
+  
+  list.innerHTML = '';
+  for(const [id, site] of entries){
+    const alive = site.process_alive;
+    const status = alive ? 'online' : 'offline';
+    const statusText = alive ? '🟢 شغال' : '🔴 متوقف';
+    const created = site.created ? new Date(site.created).toLocaleDateString('ar') : '-';
+    const port = site.port || '-';
+    
+    const card = document.createElement('div');
+    card.className = 'site-card';
+    card.id = `site-${id}`;
+    card.innerHTML = `
+      <div class="site-card-header">
+        <div class="site-card-info">
+          <span class="site-status-dot ${status}"></span>
+          <div>
+            <div class="site-name">${esc(site.name||'موقع')}</div>
+            <span class="site-id">${id} · منفذ ${port}</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">${statusText}</div>
+      </div>
+      <div class="site-card-footer">
+        <span>📦 ${site.size||0}KB</span>
+        <span>📅 ${created}</span>
+        ${site.has_requirements ? '<span>📋 req</span>' : ''}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px">
+        ${alive
+          ? `<button class="site-btn stop" onclick="stopSite('${id}')">⏹ إيقاف</button>
+             <button class="site-btn open" onclick="openSite('${id}')">🔗 فتح</button>`
+          : `<button class="site-btn run" onclick="startSite('${id}')">▶ تشغيل</button>`
+        }
+        <button class="site-btn logs" onclick="openLogs('${id}','${esc(site.name||'موقع')}')">📋 سجلات</button>
+        <button class="site-btn delete" onclick="deleteSite('${id}')">🗑 حذف</button>
+      </div>
+    `;
+    list.appendChild(card);
+  }
+}
+
+// Actions
+async function startSite(id){
+  showAlert('success','⏳','جاري تشغيل الموقع...');
+  try{
+    const r = await fetch(`/api/site/${id}/start`, {method:'POST'});
+    const d = await r.json();
+    if(d.success){
+      showAlert('success','✅',`تم تشغيل الموقع على المنفذ ${d.port}!`);
+      loadSites();
+    } else {
+      showAlert('error','❌',d.error||'فشل التشغيل');
+    }
+  } catch(e){
+    showAlert('error','❌','خطأ في الاتصال');
+  }
+}
+
+async function stopSite(id){
+  if(!confirm('⏹ تأكيد إيقاف الموقع؟')) return;
+  try{
+    const r = await fetch(`/api/site/${id}/stop`, {method:'POST'});
+    const d = await r.json();
+    if(d.success){
+      showAlert('success','✅','تم إيقاف الموقع');
+      loadSites();
+    }
+  } catch(e){}
+}
+
+async function deleteSite(id){
+  if(!confirm('🗑 تأكيد حذف الموقع؟ لا يمكن التراجع!')) return;
+  try{
+    const r = await fetch(`/api/site/${id}/delete`, {method:'POST'});
+    const d = await r.json();
+    if(d.success){
+      showAlert('success','✅','تم حذف الموقع');
+      if(currentSiteId===id){ closeLogs(); }
+      loadSites();
+    }
+  } catch(e){}
+}
+
+function openSite(id){
+  // Open the site URL in a new tab
+  const port = 3000; // approximate — we'll look it up
+  const sites = document.getElementById('sitesList');
+  // Fetch current site data to get port
+  fetch('/api/sites').then(r=>r.json()).then(data => {
+    const site = data[id];
+    if(site && site.port){
+      window.open(`http://localhost:${site.port}`, '_blank');
+    } else {
+      showAlert('error','❌','الموقع ما عنده منفذ');
+    }
+  }).catch(() => {
+    showAlert('error','❌','فشل فتح الموقع');
+  });
+}
+
+// Logs
+async function openLogs(id, name){
+  currentSiteId = id;
+  document.getElementById('logsTitle').textContent = `📋 سجلات ${name}`;
+  document.getElementById('logsModal').classList.add('active');
+  document.getElementById('logsBody').textContent = '🚀 تحميل...';
+  await refreshLogs();
+  if(refreshInterval) clearInterval(refreshInterval);
+  refreshInterval = setInterval(refreshLogs, 3000);
+}
+
+async function refreshLogs(){
+  if(!currentSiteId) return;
+  try{
+    const r = await fetch(`/api/site/${currentSiteId}/logs`);
+    const d = await r.json();
+    const body = document.getElementById('logsBody');
+    body.textContent = d.logs || '📭 ما في سجلات بعد';
+    body.scrollTop = body.scrollHeight;
+    const stopBtn = document.getElementById('logsStopBtn');
+    if(d.alive){
+      stopBtn.textContent = '⏹ إيقاف';
+      stopBtn.className = 'site-btn stop';
+    } else {
+      stopBtn.textContent = '▶ تشغيل';
+      stopBtn.className = 'site-btn run';
+    }
+  } catch(e){}
+}
+
+function closeLogs(){
+  document.getElementById('logsModal').classList.remove('active');
+  if(refreshInterval){ clearInterval(refreshInterval); refreshInterval=null; }
+  currentSiteId=null;
+}
+
+function stopFromLogs(){
+  if(!currentSiteId) return;
+  stopSite(currentSiteId);
+  setTimeout(refreshLogs, 1000);
+}
+
+function deleteFromLogs(){
+  if(!currentSiteId) return;
+  deleteSite(currentSiteId);
+}
+
+// Alert / Toast
+let alertTimeout;
+
+function showAlert(type, icon, msg){
+  const container = document.getElementById('alertContainer');
+  clearTimeout(alertTimeout);
+  
+  container.innerHTML = `
+    <div class="alert ${type}">
+      <span class="alert-icon">${icon}</span>
+      ${msg}
+    </div>`;
+  
+  alertTimeout = setTimeout(() => { container.innerHTML=''; }, 4000);
+  
+  const toast = document.getElementById('toast');
+  toast.className = 'toast show '+type;
+  toast.textContent = `${icon} ${msg}`;
+  setTimeout(() => { toast.className='toast'; }, 2500);
+}
+
+function esc(s){
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => {
+    if(e.target===el) el.classList.remove('active');
+  });
+});
+</script>
+</body>
+</html>
